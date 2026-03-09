@@ -165,13 +165,13 @@ public class UpdateHandler : IUpdateHandler
                     {
                         var albumId = data.Replace("dl_al_", string.Empty);
                         
-                        songsIds =  _musicService.GetAlbumTracksAsync(offset: 0, limit: 250, albumId, store).Result.Where(x => x.Type is ResourceType.Songs).Select(x => x.Id).ToArray();
+                        songsIds =  _musicService.GetAlbumTracksAsync(offset: 0, limit: 250, albumId, store).Result.Where(x => x.ResourceType is ResourceType.Songs).Select(x => x.Id).ToArray();
                     }
                     else if (data.StartsWith("dl_pl_"))
                     {
                         var playlistId = data.Replace("dl_pl_", string.Empty);
                         
-                        songsIds =  _musicService.GetPlaylistTracksAsync(offset: 0, limit: 250, playlistId, store).Result.Where(x => x.Type is ResourceType.Songs).Select(x => x.Id).ToArray();
+                        songsIds =  _musicService.GetPlaylistTracksAsync(offset: 0, limit: 250, playlistId, store).Result.Where(x => x.ResourceType is ResourceType.Songs).Select(x => x.Id).ToArray();
                     }
                     else
                     {

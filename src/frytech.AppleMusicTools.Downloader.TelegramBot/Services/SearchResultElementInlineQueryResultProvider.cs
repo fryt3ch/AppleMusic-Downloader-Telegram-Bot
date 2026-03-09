@@ -28,7 +28,7 @@ public class SearchResultElementInlineQueryResultProvider
 
         var attributes = hasAttributesResource.Attributes;
 
-        var url = _musicService.CreateMusicElementUrl(resource.Type, resource.Id, _appSettings.AppleMusic.DefaultStore);
+        var url = _musicService.CreateMusicElementUrl(resource.ResourceType, resource.Id, _appSettings.AppleMusic.DefaultStore);
         var urlStr = url.ToString();
         
         var inputMessageContent = new InputTextMessageContent($"{urlStr}");
@@ -39,7 +39,7 @@ public class SearchResultElementInlineQueryResultProvider
 
         if (attributes is ITrackAttributes trackAttributes)
         {
-            article.Description = resource.Type is ResourceType.MusicVideos
+            article.Description = resource.ResourceType is ResourceType.MusicVideos
                 ? $"{trackAttributes.ArtistName}\nMusic Videos Are Not Available!"
                 : $"{trackAttributes.ArtistName}\n{(trackAttributes.Duration == TimeSpan.Zero
                     ? "Not Released"

@@ -11,8 +11,8 @@
     <ItemGroup>
       <PackageReference Include="FluentValidation" Version="12.1.1" />
       <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
-      <PackageReference Include="frytech.AppleMusic.API" Version="1.0.2-a" />
-      <PackageReference Include="frytech.AppleMusicTools.Downloader" Version="1.0.8" />
+      <PackageReference Include="frytech.AppleMusic.API" Version="1.0.4" />
+      <PackageReference Include="frytech.AppleMusicTools.Downloader" Version="1.0.9" />
       <PackageReference Include="frytech.Essentials.FluentValidation.Tools" Version="1.0.0" />
       <PackageReference Include="KeyedSemaphores" Version="6.0.0" />
       <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.3">
