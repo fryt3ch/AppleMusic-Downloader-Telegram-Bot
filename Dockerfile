@@ -1,7 +1,7 @@
 ﻿# ----------------------------
 # STAGE 1: Build .NET App
 # ----------------------------
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
 ARG TARGETARCH
 ARG BUILD_CONFIGURATION=Release
@@ -60,7 +60,7 @@ RUN git clone https://github.com/axiomatic-systems/Bento4.git bento4 \
 # ----------------------------
 # STAGE 3: Runtime
 # ----------------------------
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-bookworm-slim
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 
 # Install sudo
 RUN apt-get update && apt-get install -y --no-install-recommends \
