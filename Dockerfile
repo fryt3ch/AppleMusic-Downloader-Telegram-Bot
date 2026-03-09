@@ -68,10 +68,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user 'appuser' with UID 1000, home directory, and sudo privileges
-RUN useradd -m -u 1000 -s /bin/bash appuser \
-    && echo "appuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/appuser \
-    && chmod 0440 /etc/sudoers.d/appuser
+# The user 'app' (UID 1000) already exists in .NET 8/9/10 images.
+# We just give that existing user sudo permissions.
+RUN echo "app ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/app \
+    && chmod 0440 /etc/sudoers.d/app
 
 # Set working directory
 WORKDIR /app
@@ -83,8 +83,7 @@ COPY --from=build /app ./
 # Set environment and entrypoint
 ENV ASPNETCORE_ENVIRONMENT=Production
 
-# Switch to the non-root user
-USER appuser
+USER app
 
 EXPOSE 8080
 ENTRYPOINT ["./frytech.AppleMusicTools.Downloader.TelegramBot"]
