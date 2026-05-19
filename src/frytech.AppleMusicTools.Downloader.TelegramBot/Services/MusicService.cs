@@ -10,15 +10,14 @@ namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services;
 
 public class MusicService
 {
-    private static readonly IReadOnlyDictionary<ResourceType, string> ResourceTypeKeywordDictionary =
-        new Dictionary<ResourceType, string>()
-        {
-            [ResourceType.Songs] = "song",
-            [ResourceType.MusicVideos] = "music-video",
-            [ResourceType.Albums] = "album",
-            [ResourceType.Artists] = "artist",
-            [ResourceType.Playlists] = "playlist",
-        };
+    private static readonly IReadOnlyDictionary<ResourceType, string> ResourceTypeKeywordDictionary = new Dictionary<ResourceType, string>()
+    {
+        [ResourceType.Songs] = "song",
+        [ResourceType.MusicVideos] = "music-video",
+        [ResourceType.Albums] = "album",
+        [ResourceType.Artists] = "artist",
+        [ResourceType.Playlists] = "playlist",
+    };
 
     private static Regex MediaUrlRegex = new Regex(@"^.*music\.apple\.com(?:\/(?<store>[a-z]+))?\/(?<mediaType>playlist|album|song|artist)(?:\/[^\/]+)*\/(?<mainId>[^\/?]+)(?:\?.*?i=(?<songId>\d+))?\/?$");
     
