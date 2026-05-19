@@ -9,7 +9,7 @@ namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services;
 public sealed class GamdlSongFileProvider : ISongFileProvider
 {
     private const string PythonExecutable = "python3";
-    private const string BridgeScriptPath = "gamdl-bridge.py";
+    private const string BridgeScriptPath = "/app/gamdl-bridge.py";
     
     private readonly AppSettings _appSettings;
     private readonly MusicService _musicService;
