@@ -99,9 +99,6 @@ public class AppSettings
     {
         [ConfigurationKeyName("COOKIES_PATH")]
         public required string CookiesPath { get; init; }
-        
-        [ConfigurationKeyName("PYTHON_EXECUTABLE")]
-        public required string PythonExecutable { get; init; }
     }
     
     public class AppleMusicDownloaderSectionValidator : AbstractValidator<AppleMusicDownloaderSection>
@@ -109,7 +106,6 @@ public class AppSettings
         public AppleMusicDownloaderSectionValidator()
         {
             RuleFor(x => x.CookiesPath).NotEmpty();
-            RuleFor(x => x.PythonExecutable).NotEmpty();
         }
     }
 }
