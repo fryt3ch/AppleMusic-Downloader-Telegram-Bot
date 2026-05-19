@@ -48,7 +48,8 @@ public sealed class GamdlSongFileProvider : ISongFileProvider
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
-            CreateNoWindow = true
+            CreateNoWindow = true,
+            WorkingDirectory = tempDir,
         };
 
         using (var process = new Process())
@@ -61,17 +62,14 @@ public sealed class GamdlSongFileProvider : ISongFileProvider
 
             await process.WaitForExitAsync();
             
-            _logger.LogDebug(output);
+            _logger.LogTrace(output);
             
-            if (!string.IsNullOrEmpty(error))
-                _logger.LogError(error);
-            
-            if (process.ExitCode != 0 || !output.Contains("SUCCESS", StringComparison.CurrentCultureIgnoreCase))
+            if (process.ExitCode != 0 || !string.IsNullOrEmpty(error))
             {
                 if (File.Exists(fullOutputPath))
                     File.Delete(fullOutputPath);
                 
-                throw new InvalidOperationException($"Python script failed.\nExitCode: {process.ExitCode}\nError: {error}\nOutput: {output}");
+                throw new InvalidOperationException($"Python script failed.\nExitCode: {process.ExitCode}\nError: {error}");
             }
         }
         
