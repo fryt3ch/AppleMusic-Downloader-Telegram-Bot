@@ -13,10 +13,12 @@ public sealed class GamdlSongFileProvider : ISongFileProvider
     
     private readonly AppSettings _appSettings;
     private readonly MusicService _musicService;
+    private readonly ILogger<GamdlSongFileProvider> _logger;
 
-    public GamdlSongFileProvider(IOptions<AppSettings> appSettings, MusicService musicService)
+    public GamdlSongFileProvider(IOptions<AppSettings> appSettings, MusicService musicService, ILogger<GamdlSongFileProvider> logger)
     {
         _musicService = musicService;
+        _logger = logger;
         _appSettings = appSettings.Value;
     }
     
@@ -58,6 +60,11 @@ public sealed class GamdlSongFileProvider : ISongFileProvider
             var error = await process.StandardError.ReadToEndAsync();
 
             await process.WaitForExitAsync();
+            
+            _logger.LogDebug(output);
+            
+            if (!string.IsNullOrEmpty(error))
+                _logger.LogError(error);
             
             if (process.ExitCode != 0 || !output.Contains("SUCCESS", StringComparison.CurrentCultureIgnoreCase))
             {
