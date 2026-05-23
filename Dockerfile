@@ -18,72 +18,34 @@ RUN dotnet nuget add source https://pkgs.dev.azure.com/tgbots/Telegram.Bot/_pack
 
 # Copy source and publish
 COPY src/ ./src/
+
 WORKDIR /src/src/frytech.AppleMusicTools.Downloader.TelegramBot
-RUN dotnet publish -o /app -c $BUILD_CONFIGURATION -a $TARGETARCH --no-restore
+RUN dotnet publish -c $BUILD_CONFIGURATION -a $TARGETARCH --no-restore -o /app/publish
 
 # ----------------------------
-# STAGE 2: Build tools
-# ----------------------------
-FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS tools-build
-
-ARG TARGETARCH
-
-WORKDIR /tmp
-
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    bash \
-    curl \
-    git \
-    unzip \
-    build-essential \
-    cmake \
-    python3 \
-    perl \
-    autoconf \
-    automake \
-    libtool \
-    nasm \
-    zlib1g-dev \
-    pkg-config \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-# Build and install Bento4 (all tools including mp4decrypt)
-RUN git clone https://github.com/axiomatic-systems/Bento4.git bento4 \
-    && cd bento4/Build \
-    && cmake -DCMAKE_BUILD_TYPE=Release .. \
-    && make -j$(nproc) \
-    && make install \
-    && cd /tmp && rm -rf bento4
-
-# ----------------------------
-# STAGE 3: Runtime
+# STAGE 2: Runtime
 # ----------------------------
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 
-# Install sudo
+# Устанавливаем только необходимый Python
 RUN apt-get update && apt-get install -y --no-install-recommends \
     sudo \
-    ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+    python3 \
+    python3-pip \
+    python3-venv \
+    && rm -rf /var/lib/apt/lists/* 
 
-# The user 'app' (UID 1000) already exists in .NET 8/9/10 images.
-# We just give that existing user sudo permissions.
-RUN echo "app ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/app \
-    && chmod 0440 /etc/sudoers.d/app
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Set working directory
+RUN pip install --no-cache-dir gamdl
+
 WORKDIR /app
-
-# Copy built tools and .NET app
-COPY --from=tools-build /usr/local/bin/ /usr/local/bin/
-COPY --from=build /app ./
-
-# Set environment and entrypoint
-ENV ASPNETCORE_ENVIRONMENT=Production
-
 USER app
 
+COPY --from=build --chown=app:app /app/publish ./
+COPY --from=build --chown=app:app /src/src/python/gamdl-bridge.py ./gamdl-bridge.py
+
+ENV ASPNETCORE_ENVIRONMENT=Production
 EXPOSE 8080
-ENTRYPOINT ["./frytech.AppleMusicTools.Downloader.TelegramBot"]
+ENTRYPOINT ["dotnet", "./frytech.AppleMusicTools.Downloader.TelegramBot.dll"]

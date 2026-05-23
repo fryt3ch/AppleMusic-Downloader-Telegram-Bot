@@ -77,9 +77,6 @@ public class AppSettings
     {
         [ConfigurationKeyName("API_TOKEN")]
         public required string ApiToken { get; init; }
-        
-        [ConfigurationKeyName("MEDIA_TOKEN")]
-        public required string MediaToken { get; init; }
 
         [ConfigurationKeyName("DEFAULT_STORE")]
         public required string DefaultStore { get; init; } = "us";
@@ -100,31 +97,15 @@ public class AppSettings
     
     public class AppleMusicDownloaderSection
     {
-        [ConfigurationKeyName("FFMPEG_PATH")]
-        public required string FfmpegPath { get; init; }
-        
-        [ConfigurationKeyName("MP4DECRYPT_PATH")]
-        public required string Mp4DecryptPath { get; init; }
-        
-        [ConfigurationKeyName("MP4TAG_PATH")]
-        public required string Mp4TagPath { get; init; }
-        
-        [ConfigurationKeyName("DEVICE_CLIENT_ID_PATH")]
-        public required string DeviceClientIdFilePath { get; init; }
-        
-        [ConfigurationKeyName("DEVICE_PRIVATE_KEY_PATH")]
-        public required string DevicePrivateKeyFilePath { get; init; }
+        [ConfigurationKeyName("COOKIES_PATH")]
+        public required string CookiesPath { get; init; }
     }
     
     public class AppleMusicDownloaderSectionValidator : AbstractValidator<AppleMusicDownloaderSection>
     {
         public AppleMusicDownloaderSectionValidator()
         {
-            RuleFor(x => x.FfmpegPath).NotEmpty();
-            RuleFor(x => x.Mp4DecryptPath).NotEmpty();
-            RuleFor(x => x.Mp4TagPath).NotEmpty();
-            RuleFor(x => x.DeviceClientIdFilePath).NotEmpty();
-            RuleFor(x => x.DevicePrivateKeyFilePath).NotEmpty();
+            RuleFor(x => x.CookiesPath).NotEmpty();
         }
     }
 }

@@ -2,12 +2,9 @@
 using FluentValidation;
 using frytech.AppleMusic.API.Configuration;
 using frytech.AppleMusic.API.Extensions;
-using frytech.AppleMusicTools.Downloader.Configuration;
-using frytech.AppleMusicTools.Downloader.Core;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Extensions;
-using frytech.AppleMusicTools.Widevine.Core.Devices;
 using frytech.Essentials.FluentValidation.Tools.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -69,45 +66,7 @@ public class Program
         services.AddScoped<SongSender>();
         services.AddScoped<SearchResultElementInlineQueryResultProvider>();
         services.AddScoped<ISongCacher, SongCacher>();
-        services.AddSingleton<ISongFileProvider, SongFileProvider>();
-        
-        services.AddSingleton<AppleMusicClient>(provider =>
-        {
-            var settings = provider.GetRequiredService<IOptions<AppSettings>>().Value;
-            
-            var httpClientFactory = provider.GetRequiredService<IHttpClientFactory>();
-            
-            return new AppleMusicClient(httpClientFactory.CreateClient("Downloader"), new AppleMusicClientOptions()
-            {
-                ApiToken = settings.AppleMusic.ApiToken,
-                MediaToken = settings.AppleMusic.MediaToken,
-            });
-        });
-
-        services.AddSingleton<WidevineDevice>(provider =>
-        {
-            var settings = provider.GetRequiredService<IOptions<AppSettings>>().Value;
-
-            var clientIdBytes = File.ReadAllBytes(settings.AppleMusicDownloader.DeviceClientIdFilePath);
-            var privateKeyBytes = File.ReadAllBytes(settings.AppleMusicDownloader.DevicePrivateKeyFilePath);
-            
-            return WidevineDevice.CreateAndroid(clientIdBytes, privateKeyBytes);
-        });
-        
-        services.AddSingleton(provider =>
-        {
-            var settings = provider.GetRequiredService<IOptions<AppSettings>>().Value;
-            
-            var client = provider.GetRequiredService<AppleMusicClient>();
-            var device = provider.GetRequiredService<WidevineDevice>();
-
-            return new AppleMusicContentDownloader(client, device, new AppleMusicContentDownloaderOptions()
-            {
-                FfmpegPath = settings.AppleMusicDownloader.FfmpegPath,
-                Mp4DecryptPath = settings.AppleMusicDownloader.Mp4DecryptPath,
-                Mp4TagPath = settings.AppleMusicDownloader.Mp4TagPath,
-            });
-        });
+        services.AddSingleton<ISongFileProvider, GamdlSongFileProvider>();
         
         var app = builder.Build();
         
