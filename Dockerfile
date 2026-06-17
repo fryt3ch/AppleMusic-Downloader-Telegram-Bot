@@ -38,7 +38,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-RUN pip install --no-cache-dir gamdl
+RUN pip install --no-cache-dir gamdl==3.7.4
 
 WORKDIR /app
 USER app
