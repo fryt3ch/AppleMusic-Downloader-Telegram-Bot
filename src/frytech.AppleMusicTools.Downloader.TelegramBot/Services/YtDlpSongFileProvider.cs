@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using frytech.AppleMusic.API.Models.Resources;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
@@ -23,8 +24,10 @@ public sealed class YtDlpSongFileProvider : ISongFileProvider
 
     public async Task<SongFile> GetSongFileAsync(Song song)
     {
-        var query = $"{song.Attributes.ArtistName} - {song.Attributes.Name}";
-        var trackStream = await DownloadTrackAsStreamAsync(query);
+        var trackStream = await DownloadTrackAsStreamAsync(
+            song.Attributes.ArtistName,
+            song.Attributes.Name,
+            song.Attributes.Duration.TotalSeconds);
 
         var fileName = SongFileNameBuilder.BuildFileName(song, OutputExtension);
         var songFile = new SongFile(fileName, trackStream);
@@ -32,7 +35,7 @@ public sealed class YtDlpSongFileProvider : ISongFileProvider
         return songFile;
     }
 
-    private async Task<Stream> DownloadTrackAsStreamAsync(string query)
+    private async Task<Stream> DownloadTrackAsStreamAsync(string artist, string title, double durationSeconds)
     {
         var tempDir = Path.GetTempPath();
         var uniqueFileName = $"{Guid.NewGuid()}{OutputExtension}";
@@ -51,7 +54,9 @@ public sealed class YtDlpSongFileProvider : ISongFileProvider
         };
 
         startInfo.ArgumentList.Add(BridgeScriptPath);
-        startInfo.ArgumentList.Add(query);
+        startInfo.ArgumentList.Add(artist);
+        startInfo.ArgumentList.Add(title);
+        startInfo.ArgumentList.Add(durationSeconds.ToString(CultureInfo.InvariantCulture));
         startInfo.ArgumentList.Add(fullOutputPath);
         startInfo.ArgumentList.Add(cookiesPath);
 
@@ -71,6 +76,9 @@ public sealed class YtDlpSongFileProvider : ISongFileProvider
             {
                 if (File.Exists(fullOutputPath))
                     File.Delete(fullOutputPath);
+
+                if (output.Contains("NOT_FOUND"))
+                    throw new InvalidOperationException($"yt-dlp could not find a matching track for '{artist} - {title}'.");
 
                 throw new InvalidOperationException($"yt-dlp script failed.\nExitCode: {process.ExitCode}\nOutput: {output}\nError: {error}");
             }

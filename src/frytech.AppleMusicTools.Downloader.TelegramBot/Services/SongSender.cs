@@ -1,4 +1,6 @@
-﻿using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Database;
+﻿using System.Text;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Database;
 using KeyedSemaphores;
 using Telegram.Bot;
 using Telegram.Bot.Types;
@@ -9,11 +11,13 @@ public class SongSender
 {
     private readonly ITelegramBotClient _client;
     private readonly ISongCacher _songCacher;
+    private readonly ILogger<SongSender> _logger;
 
-    public SongSender(ITelegramBotClient client, ISongCacher songCacher)
+    public SongSender(ITelegramBotClient client, ISongCacher songCacher, ILogger<SongSender> logger)
     {
         _client = client;
         _songCacher = songCacher;
+        _logger = logger;
     }
     
     public async Task SendSongs(Chat chat, IEnumerable<string> songIds, string store, ReplyParameters? replyParameters, CancellationToken cancellationToken)
@@ -23,6 +27,7 @@ public class SongSender
         Message? statusMessage = null;
 
         var cachedSongs = new List<CachedSong>();
+        var failedSongs = new List<SongDownloadFailedException>();
 
         string statusMessageText;
         var statusMessageTextWarning = "This process may take a long time so be patient. Only one pending request is available per user, so wait for this one to be done before making a new one.";
@@ -40,9 +45,18 @@ public class SongSender
 
             using (await KeyedSemaphore.LockAsync(songId, cancellationToken))
             {
-                var cachedSong = await _songCacher.GetCachedSong(songId, store, cancellationToken);
-            
-                cachedSongs.Add(cachedSong);
+                try
+                {
+                    var cachedSong = await _songCacher.GetCachedSong(songId, store, cancellationToken);
+
+                    cachedSongs.Add(cachedSong);
+                }
+                catch (SongDownloadFailedException exception)
+                {
+                    _logger.LogWarning(exception, "Skipping song {SongId} because it could not be downloaded.", songId);
+
+                    failedSongs.Add(exception);
+                }
             }
         }
 
@@ -78,6 +92,25 @@ public class SongSender
         
         if (statusMessage is not null)
             await _client.DeleteMessage(chat.Id, statusMessage.MessageId, cancellationToken: cancellationToken);
+
+        if (failedSongs.Count > 0)
+            await SendFailedSongsReport(chat, failedSongs, replyParameters, cancellationToken);
+    }
+
+    private async Task SendFailedSongsReport(Chat chat, IReadOnlyCollection<SongDownloadFailedException> failedSongs, ReplyParameters? replyParameters, CancellationToken cancellationToken)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine($"Couldn't get {failedSongs.Count} song(s):");
+
+        foreach (var failedSong in failedSongs)
+            builder.AppendLine($"• {failedSong.ArtistName} — {failedSong.Name}");
+
+        await _client.SendMessage(
+            chat.Id,
+            builder.ToString(),
+            replyParameters: replyParameters,
+            disableNotification: true,
+            cancellationToken: cancellationToken);
     }
 
     private static InputMediaAudio CreateInputMediaAudio(CachedSong cachedSong)

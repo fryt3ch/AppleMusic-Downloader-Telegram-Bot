@@ -131,6 +131,18 @@ Search, metadata, and cache IDs always come from the Apple Music Catalog API. On
 
 With the `ytdlp` provider an Apple Music subscription is **not** required — only the JWT token for search. YouTube may present bot checks on datacenter IPs; supply a cookies file to improve reliability.
 
+#### How the YouTube provider matches tracks
+
+Search, metadata, and cache IDs always stay on Apple Music. For each track the `ytdlp` provider builds a query from the Apple metadata (`<artist> - <title>`), requests the top 5 YouTube results, and picks the best match by:
+
+- **duration** closeness to the Apple track,
+- **title** similarity (noise like "official audio", "lyrics", "remaster" is stripped),
+- **channel** (preferring the artist's auto-generated `- Topic` channels).
+
+The selected audio is transcoded to `.m4a`.
+
+If nothing matches, the track is skipped with a per-track notice and the rest of an album/playlist still downloads. Failed tracks are **not** cached, so they are retried on the next request.
+
 ## Setup
 
 ### 1. Clone & Configure
