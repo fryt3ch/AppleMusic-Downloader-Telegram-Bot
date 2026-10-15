@@ -66,7 +66,12 @@ public class Program
         services.AddScoped<SongSender>();
         services.AddScoped<SearchResultElementInlineQueryResultProvider>();
         services.AddScoped<ISongCacher, SongCacher>();
-        services.AddSingleton<ISongFileProvider, GamdlSongFileProvider>();
+
+        var songFileProvider = configuration["DOWNLOADER:PROVIDER"] ?? "gamdl";
+        if (songFileProvider.Equals("ytdlp", StringComparison.OrdinalIgnoreCase))
+            services.AddSingleton<ISongFileProvider, YtDlpSongFileProvider>();
+        else
+            services.AddSingleton<ISongFileProvider, GamdlSongFileProvider>();
         
         var app = builder.Build();
         

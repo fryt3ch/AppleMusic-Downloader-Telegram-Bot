@@ -30,6 +30,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0
 # Устанавливаем только необходимый Python
 RUN apt-get update && apt-get install -y --no-install-recommends \
     sudo \
+    ffmpeg \
     python3 \
     python3-pip \
     python3-venv \
@@ -38,13 +39,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-RUN pip install --no-cache-dir gamdl==3.7.4
+RUN pip install --no-cache-dir gamdl==3.7.4 yt-dlp
 
 WORKDIR /app
 USER app
 
 COPY --from=build --chown=app:app /app/publish ./
 COPY --from=build --chown=app:app /src/src/python/gamdl-bridge.py ./gamdl-bridge.py
+COPY --from=build --chown=app:app /src/src/python/ytdlp-bridge.py ./ytdlp-bridge.py
 
 ENV ASPNETCORE_ENVIRONMENT=Production
 EXPOSE 8080

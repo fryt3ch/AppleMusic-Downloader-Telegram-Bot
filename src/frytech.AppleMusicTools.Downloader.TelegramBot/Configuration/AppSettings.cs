@@ -13,6 +13,9 @@ public class AppSettings
     [ConfigurationKeyName("APPLE_MUSIC_DOWNLOADER")]
     public required AppleMusicDownloaderSection AppleMusicDownloader { get; init; }
 
+    [ConfigurationKeyName("DOWNLOADER")]
+    public DownloaderSection Downloader { get; init; } = new();
+
     public class TelegramSection
     {
         [ConfigurationKeyName("BOT_TOKEN")]
@@ -108,6 +111,36 @@ public class AppSettings
             RuleFor(x => x.CookiesPath).NotEmpty();
         }
     }
+
+    public class DownloaderSection
+    {
+        [ConfigurationKeyName("PROVIDER")]
+        public string Provider { get; init; } = "gamdl";
+
+        [ConfigurationKeyName("YTDLP")]
+        public YtDlpSection YtDlp { get; init; } = new();
+
+        public class YtDlpSection
+        {
+            [ConfigurationKeyName("COOKIES_PATH")]
+            public string? CookiesPath { get; init; }
+        }
+    }
+
+    public class DownloaderSectionValidator : AbstractValidator<DownloaderSection>
+    {
+        private static readonly string[] AllowedProviders = ["gamdl", "ytdlp"];
+
+        public DownloaderSectionValidator()
+        {
+            RuleFor(x => x.Provider)
+                .NotEmpty()
+                .Must(provider => AllowedProviders.Contains(provider, StringComparer.OrdinalIgnoreCase))
+                .WithMessage("Provider must be one of: gamdl, ytdlp.");
+
+            RuleFor(x => x.YtDlp).NotNull();
+        }
+    }
 }
 
 public class AppSettingsValidator : AbstractValidator<AppSettings>
@@ -121,6 +154,10 @@ public class AppSettingsValidator : AbstractValidator<AppSettings>
         RuleFor(x => x.AppleMusicDownloader)
             .NotEmpty()
             .SetValidator(new AppSettings.AppleMusicDownloaderSectionValidator());
+
+        RuleFor(x => x.Downloader)
+            .NotEmpty()
+            .SetValidator(new AppSettings.DownloaderSectionValidator());
 
         RuleFor(x => x.Telegram)
             .NotEmpty()

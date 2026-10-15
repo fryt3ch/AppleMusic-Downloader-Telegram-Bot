@@ -38,6 +38,8 @@ services:
         APPLE_MUSIC_DOWNLOADER__COOKIES_PATH: "${APPLE_MUSIC_DOWNLOADER__COOKIES_PATH:-/app/data/cookies.txt}"
         APPLE_MUSIC__DEFAULT_STORE: "${APPLE_MUSIC__DEFAULT_STORE:-us}"
         APPLE_MUSIC__API_TOKEN: "${APPLE_MUSIC__API_TOKEN}"
+        DOWNLOADER__PROVIDER: "${DOWNLOADER__PROVIDER:-gamdl}"
+        DOWNLOADER__YTDLP__COOKIES_PATH: "${DOWNLOADER__YTDLP__COOKIES_PATH:-}"
       volumes:
         - "${BOT_DATA_PATH:-./data/bot}:/app/data/"
       restart: unless-stopped
