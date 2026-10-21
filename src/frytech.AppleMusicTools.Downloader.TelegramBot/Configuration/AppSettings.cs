@@ -1,4 +1,5 @@
 ﻿using FluentValidation;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services;
 
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
     
@@ -121,19 +122,19 @@ public class AppSettings
 
     public class DownloaderSectionValidator : AbstractValidator<DownloaderSection>
     {
-        private static readonly string[] AllowedProviders = ["gamdl", "ytdlp"];
+        private static readonly IReadOnlyList<string> AllowedProviders = SongFileProviderRegistry.Names;
 
         public DownloaderSectionValidator()
         {
             RuleFor(x => x.Provider)
                 .NotEmpty()
                 .Must(provider => AllowedProviders.Contains(provider, StringComparer.OrdinalIgnoreCase))
-                .WithMessage("Provider must be one of: gamdl, ytdlp.");
+                .WithMessage(_ => $"Provider must be one of: {string.Join(", ", AllowedProviders)}.");
 
             RuleFor(x => x.Gamdl).NotNull();
             RuleFor(x => x.YtDlp).NotNull();
 
-            When(x => string.Equals(x.Provider, "gamdl", StringComparison.OrdinalIgnoreCase), () =>
+            When(x => string.Equals(x.Provider, GamdlSongFileProvider.Name, StringComparison.OrdinalIgnoreCase), () =>
             {
                 RuleFor(x => x.Gamdl.CookiesPath)
                     .NotEmpty()

@@ -7,13 +7,16 @@ using Microsoft.Extensions.Options;
 
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services;
 
+[SongFileProvider(Name)]
 public sealed class YtDlpSongFileProvider : ISongFileProvider
 {
+    public const string Name = "ytdlp";
+
     private const string PythonExecutable = "python3";
     private const string BridgeScriptPath = "/app/ytdlp-bridge.py";
     private const string OutputExtension = ".m4a";
     
-    public string ProviderName => "ytdlp";
+    public string ProviderName => Name;
 
     private readonly AppSettings _appSettings;
     private readonly ILogger<YtDlpSongFileProvider> _logger;
