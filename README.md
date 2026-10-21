@@ -163,6 +163,7 @@ Fill in the `.env` file with your credentials:
 |------------------------------------------|:--------:|------------------------------------|------------------------------------------------|
 | `TELEGRAM__BOT_TOKEN`                    |    ✅    | —                                  | Telegram bot token from @BotFather             |
 | `TELEGRAM__STORAGE_CHAT_ID`              |    ✅    | —                                  | Telegram chat/group ID for caching files       |
+| `TELEGRAM__PROGRESS_UPDATE_INTERVAL_SECONDS` |      | `2`                                | Minimum seconds between download progress edits (`0` = every song) |
 | `APPLE_MUSIC__API_TOKEN`                 |    ✅    | —                                  | Apple Music JWT developer token                |
 | `APPLE_MUSIC__DEFAULT_STORE`             |          | `us`                               | Default iTunes storefront (`us`, `kz`, `ru`, …)|
 | `DOWNLOADER__PROVIDER`                   |          | `gamdl`                            | Audio file provider: `gamdl` (Apple) or `ytdlp` (YouTube) |

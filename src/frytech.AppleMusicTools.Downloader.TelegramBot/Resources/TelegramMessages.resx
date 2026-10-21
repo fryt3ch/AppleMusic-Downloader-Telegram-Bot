@@ -73,4 +73,19 @@
   <data name="DownloadFailed" xml:space="preserve">
     <value>Something went wrong with your latest songs request!</value>
   </data>
+  <data name="ProgressGathering" xml:space="preserve">
+    <value>Songs gathered: {0} of {1}.&#10;&#10;{2}</value>
+  </data>
+  <data name="ProgressSending" xml:space="preserve">
+    <value>All songs were gathered, sending them in groups: {0} of {1}.&#10;&#10;{2}</value>
+  </data>
+  <data name="ProgressWarning" xml:space="preserve">
+    <value>This process may take a long time so be patient. Only one pending request is available per user, so wait for this one to be done before making a new one.</value>
+  </data>
+  <data name="FailedSongsHeader" xml:space="preserve">
+    <value>Couldn't get {0} song(s):</value>
+  </data>
+  <data name="FailedSongLine" xml:space="preserve">
+    <value>• {0} — {1}</value>
+  </data>
 </root>

@@ -1,7 +1,10 @@
 ﻿using System.Text;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Database;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Resources;
 using KeyedSemaphores;
+using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 
@@ -9,101 +12,105 @@ namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services;
 
 public class SongSender
 {
+    private const int MEDIA_BATCH_SIZE = 10;
+    
     private readonly ITelegramBotClient _client;
     private readonly ISongCacher _songCacher;
     private readonly ILogger<SongSender> _logger;
+    private readonly TimeSpan _progressUpdateInterval;
 
-    public SongSender(ITelegramBotClient client, ISongCacher songCacher, ILogger<SongSender> logger)
+    public SongSender(
+        ITelegramBotClient client,
+        ISongCacher songCacher,
+        IOptions<AppSettings> appSettings,
+        ILogger<SongSender> logger)
     {
         _client = client;
         _songCacher = songCacher;
         _logger = logger;
+        _progressUpdateInterval = TimeSpan.FromSeconds(appSettings.Value.Telegram.ProgressUpdateIntervalSeconds);
     }
-    
+
     public async Task SendSongs(Chat chat, IEnumerable<string> songIds, string store, ReplyParameters? replyParameters, CancellationToken cancellationToken)
     {
         var songIdsArray = songIds.ToArray();
 
-        Message? statusMessage = null;
+        if (songIdsArray.Length == 0)
+            return;
 
         var cachedSongs = new List<CachedSong>();
         var failedSongs = new List<SongDownloadFailedException>();
+        var progress = new DownloadProgressReporter(_client, chat, replyParameters, _progressUpdateInterval, _logger);
 
-        string statusMessageText;
-        var statusMessageTextWarning = "This process may take a long time so be patient. Only one pending request is available per user, so wait for this one to be done before making a new one.";
-
-        for (var i = 0; i < songIdsArray.Length; i++)
+        try
         {
-            var songId = songIdsArray[i];
+            await progress.StartAsync(songIdsArray.Length, cancellationToken);
 
-            statusMessageText = $"Songs gathered: {i} of {songIdsArray.Length}.\n\n{statusMessageTextWarning}";
-
-            if (statusMessage is null)
-                statusMessage = await _client.SendMessage(chat.Id, statusMessageText, replyParameters: replyParameters, disableNotification: true, cancellationToken: cancellationToken);
-            else
-                statusMessage = await _client.EditMessageText(chat.Id, statusMessage.MessageId, statusMessageText, cancellationToken: cancellationToken);
-
-            using (await KeyedSemaphore.LockAsync(songId, cancellationToken))
+            for (var i = 0; i < songIdsArray.Length; i++)
             {
-                try
+                var songId = songIdsArray[i];
+
+                using (await KeyedSemaphore.LockAsync(songId, cancellationToken))
                 {
-                    var cachedSong = await _songCacher.GetCachedSong(songId, store, cancellationToken);
+                    try
+                    {
+                        var cachedSong = await _songCacher.GetCachedSong(songId, store, cancellationToken);
 
-                    cachedSongs.Add(cachedSong);
+                        cachedSongs.Add(cachedSong);
+                    }
+                    catch (SongDownloadFailedException exception)
+                    {
+                        _logger.LogWarning(exception, "Skipping song {SongId} because it could not be downloaded.", songId);
+
+                        failedSongs.Add(exception);
+                    }
                 }
-                catch (SongDownloadFailedException exception)
-                {
-                    _logger.LogWarning(exception, "Skipping song {SongId} because it could not be downloaded.", songId);
 
-                    failedSongs.Add(exception);
-                }
+                await progress.ReportAsync(i + 1, songIdsArray.Length, cancellationToken);
             }
-        }
-
-        var batchSize = 10;
-        
-        var batches = cachedSongs
-            .Select((dataElement, index) => new { dataElement, index })
-            .GroupBy(x => x.index / batchSize, x => x.dataElement)
-            .ToArray();
-
-        var sentSongsAmount = 0;
-        
-        foreach (var batch in batches)
-        {
-            var batchArray = batch.ToArray();
-
-            if (statusMessage is not null && batches.Length > 1)
-            {
-                statusMessageText = $"All songs were gathered, sending them in groups: {sentSongsAmount} of {songIdsArray.Length}.\n\n{statusMessageTextWarning}";
-                
-                await _client.EditMessageText(chat.Id, statusMessage.MessageId, statusMessageText, cancellationToken: cancellationToken);
-            }
-
-            await _client.SendMediaGroup(
-                chat.Id,
-                batchArray.Select(CreateInputMediaAudio),
-                disableNotification: true,
-                replyParameters: replyParameters,
-                cancellationToken: cancellationToken);
             
-            sentSongsAmount += batchArray.Length;
-        }
-        
-        if (statusMessage is not null)
-            await _client.DeleteMessage(chat.Id, statusMessage.MessageId, cancellationToken: cancellationToken);
+            var batches = cachedSongs
+                .Select((dataElement, index) => new { dataElement, index })
+                .GroupBy(x => x.index / MEDIA_BATCH_SIZE, x => x.dataElement)
+                .ToArray();
 
-        if (failedSongs.Count > 0)
-            await SendFailedSongsReport(chat, failedSongs, replyParameters, cancellationToken);
+            var sentSongsAmount = 0;
+
+            foreach (var batch in batches)
+            {
+                var batchArray = batch.ToArray();
+
+                if (batches.Length > 1)
+                    await progress.ReportSendingAsync(sentSongsAmount, songIdsArray.Length, cancellationToken);
+
+                await _client.SendMediaGroup(
+                    chat.Id,
+                    batchArray.Select(CreateInputMediaAudio),
+                    disableNotification: true,
+                    replyParameters: replyParameters,
+                    cancellationToken: cancellationToken);
+
+                sentSongsAmount += batchArray.Length;
+            }
+
+            await progress.CompleteAsync();
+
+            if (failedSongs.Count > 0)
+                await SendFailedSongsReport(chat, failedSongs, replyParameters, cancellationToken);
+        }
+        finally
+        {
+            await progress.CompleteAsync();
+        }
     }
 
     private async Task SendFailedSongsReport(Chat chat, IReadOnlyCollection<SongDownloadFailedException> failedSongs, ReplyParameters? replyParameters, CancellationToken cancellationToken)
     {
         var builder = new StringBuilder();
-        builder.AppendLine($"Couldn't get {failedSongs.Count} song(s):");
+        builder.AppendLine(string.Format(TelegramMessages.FailedSongsHeader, failedSongs.Count));
 
         foreach (var failedSong in failedSongs)
-            builder.AppendLine($"• {failedSong.ArtistName} — {failedSong.Name}");
+            builder.AppendLine(string.Format(TelegramMessages.FailedSongLine, failedSong.ArtistName, failedSong.Name));
 
         await _client.SendMessage(
             chat.Id,

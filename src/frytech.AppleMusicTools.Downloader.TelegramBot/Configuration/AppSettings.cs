@@ -33,6 +33,9 @@ public class AppSettings
 
         [ConfigurationKeyName("THUMBNAIL_PREVIEW_SIZE")]
         public int ThumbnailPreviewSize { get; init; } = 120;
+
+        [ConfigurationKeyName("PROGRESS_UPDATE_INTERVAL_SECONDS")]
+        public int ProgressUpdateIntervalSeconds { get; init; } = 2;
         
         public class WebhookSection
         {
@@ -84,6 +87,7 @@ public class AppSettings
             RuleFor(x => x.StorageChatId).NotEmpty();
             RuleFor(x => x.BotToken).NotEmpty();
             RuleFor(x => x.ServerApiUrl).NotEmpty();
+            RuleFor(x => x.ProgressUpdateIntervalSeconds).InclusiveBetween(0, 60);
             
             RuleFor(x => x.Webhook!)
                 .SetValidator(new TelegramSection.WebhookSectionValidator())

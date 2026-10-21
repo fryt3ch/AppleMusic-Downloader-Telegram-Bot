@@ -7,6 +7,8 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
+#nullable enable
+
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Resources;
 
 [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
@@ -49,4 +51,14 @@ internal static partial class TelegramMessages
     internal static string PendingDownload => ResourceManager.GetString(nameof(PendingDownload), resourceCulture)!;
 
     internal static string DownloadFailed => ResourceManager.GetString(nameof(DownloadFailed), resourceCulture)!;
+
+    internal static string ProgressGathering => ResourceManager.GetString(nameof(ProgressGathering), resourceCulture)!;
+
+    internal static string ProgressSending => ResourceManager.GetString(nameof(ProgressSending), resourceCulture)!;
+
+    internal static string ProgressWarning => ResourceManager.GetString(nameof(ProgressWarning), resourceCulture)!;
+
+    internal static string FailedSongsHeader => ResourceManager.GetString(nameof(FailedSongsHeader), resourceCulture)!;
+
+    internal static string FailedSongLine => ResourceManager.GetString(nameof(FailedSongLine), resourceCulture)!;
 }
