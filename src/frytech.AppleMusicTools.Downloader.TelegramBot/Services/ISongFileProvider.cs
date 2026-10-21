@@ -5,5 +5,7 @@ namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services;
 
 public interface ISongFileProvider
 {
+    public string ProviderName { get; }
+
     public Task<SongFile> GetSongFileAsync(Song song);
 }

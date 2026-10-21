@@ -61,6 +61,7 @@ public class SongCacher : ISongCacher
                 Duration = song.Attributes.Duration,
                 FileId = uploadedFile.FileId,
                 FileUniqueId = uploadedFile.FileUniqueId,
+                Provider = _songFileProvider.ProviderName,
             };
 
             await _appDbContext.AddAsync(cachedSong, cancellationToken);

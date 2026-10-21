@@ -11,6 +11,8 @@ public sealed class GamdlSongFileProvider : ISongFileProvider
     private const string PythonExecutable = "python3";
     private const string BridgeScriptPath = "/app/gamdl-bridge.py";
     
+    public string ProviderName => "gamdl";
+    
     private readonly AppSettings _appSettings;
     private readonly MusicService _musicService;
     private readonly ILogger<GamdlSongFileProvider> _logger;

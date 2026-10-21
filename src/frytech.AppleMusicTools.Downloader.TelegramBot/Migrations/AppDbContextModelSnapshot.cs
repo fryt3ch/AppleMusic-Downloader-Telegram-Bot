@@ -15,7 +15,7 @@ namespace frytech.AppleMusicTools.Downloader.TelegramBot.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "9.0.3");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.3");
 
             modelBuilder.Entity("frytech.AppleMusicTools.Downloader.TelegramBot.Models.Database.CachedSong", b =>
                 {
@@ -41,6 +41,10 @@ namespace frytech.AppleMusicTools.Downloader.TelegramBot.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Provider")
                         .IsRequired()
                         .HasColumnType("TEXT");
 

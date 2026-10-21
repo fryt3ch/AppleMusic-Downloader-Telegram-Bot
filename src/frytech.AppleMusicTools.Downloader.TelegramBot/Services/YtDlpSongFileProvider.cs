@@ -12,6 +12,8 @@ public sealed class YtDlpSongFileProvider : ISongFileProvider
     private const string PythonExecutable = "python3";
     private const string BridgeScriptPath = "/app/ytdlp-bridge.py";
     private const string OutputExtension = ".m4a";
+    
+    public string ProviderName => "ytdlp";
 
     private readonly AppSettings _appSettings;
     private readonly ILogger<YtDlpSongFileProvider> _logger;
@@ -21,7 +23,7 @@ public sealed class YtDlpSongFileProvider : ISongFileProvider
         _logger = logger;
         _appSettings = appSettings.Value;
     }
-
+    
     public async Task<SongFile> GetSongFileAsync(Song song)
     {
         var trackStream = await DownloadTrackAsStreamAsync(
