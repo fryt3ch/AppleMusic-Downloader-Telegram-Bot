@@ -109,7 +109,7 @@
 | Database         | SQLite via EF Core                      |
 | Download Engine  | Python 3 + gamdl (3.7.4) / yt-dlp + Deno |
 | Containerization | Docker, Docker Compose                  |
-| Resilience       | Polly (retry policies), KeyedSemaphores |
+| Resilience       | KeyedSemaphores                         |
 | Validation       | FluentValidation                        |
 
 ## Requirements
@@ -171,6 +171,8 @@ Fill in the `.env` file with your credentials:
 | `TELEGRAM__SERVER_API_URL`               |          | `https://api.telegram.org`         | Telegram API endpoint                          |
 | `TELEGRAM__WEBHOOK__ENABLED`             |          | `false`                            | Enable webhook mode                            |
 | `TELEGRAM__WEBHOOK__URL`                 |          | —                                  | Webhook callback URL (required if enabled)     |
+| `TELEGRAM__WEBHOOK__PATH`                |          | `/api/bot/update`                  | Local endpoint path for incoming updates       |
+| `TELEGRAM__WEBHOOK__SECRET_TOKEN`        |          | —                                  | Optional secret token validated on each update |
 | `TELEGRAM__WEBHOOK__MAX_CONNECTIONS`     |          | `50`                               | Max simultaneous webhook connections           |
 | `TELEGRAM_API_ID`                        |          | —                                  | For local bot API profile only                 |
 | `TELEGRAM_API_HASH`                      |          | —                                  | For local bot API profile only                 |

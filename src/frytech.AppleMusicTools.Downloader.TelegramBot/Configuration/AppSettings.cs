@@ -39,6 +39,12 @@ public class AppSettings
             [ConfigurationKeyName("URL")]
             public Uri? Url { get; init; }
 
+            [ConfigurationKeyName("PATH")]
+            public string Path { get; init; } = "/api/bot/update";
+
+            [ConfigurationKeyName("SECRET_TOKEN")]
+            public string? SecretToken { get; init; }
+
             [ConfigurationKeyName("MAX_CONNECTIONS")]
             public int MaxConnections { get; init; } = 5;
             
@@ -53,6 +59,17 @@ public class AppSettings
                 RuleFor(x => x.Url)
                     .NotEmpty()
                     .When(x => x.IsEnabled);
+
+                RuleFor(x => x.Path)
+                    .NotEmpty()
+                    .Must(path => path.StartsWith('/'))
+                    .WithMessage("Webhook path must start with '/'.")
+                    .When(x => x.IsEnabled);
+
+                RuleFor(x => x.SecretToken)
+                    .MaximumLength(256)
+                    .Matches("^[A-Za-z0-9_-]+$")
+                    .When(x => !string.IsNullOrEmpty(x.SecretToken));
 
                 RuleFor(x => x.MaxConnections)
                     .InclusiveBetween(1, int.MaxValue);
