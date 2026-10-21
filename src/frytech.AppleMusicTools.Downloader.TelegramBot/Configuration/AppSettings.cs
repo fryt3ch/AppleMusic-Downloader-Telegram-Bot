@@ -9,9 +9,6 @@ public class AppSettings
 
     [ConfigurationKeyName("APPLE_MUSIC")]
     public required AppleMusicSection AppleMusic { get; init; }
-    
-    [ConfigurationKeyName("APPLE_MUSIC_DOWNLOADER")]
-    public required AppleMusicDownloaderSection AppleMusicDownloader { get; init; }
 
     [ConfigurationKeyName("DOWNLOADER")]
     public DownloaderSection Downloader { get; init; } = new();
@@ -97,29 +94,24 @@ public class AppSettings
             RuleFor(x => x.StoreApiUrl).NotEmpty();
         }
     }
-    
-    public class AppleMusicDownloaderSection
-    {
-        [ConfigurationKeyName("COOKIES_PATH")]
-        public required string CookiesPath { get; init; }
-    }
-    
-    public class AppleMusicDownloaderSectionValidator : AbstractValidator<AppleMusicDownloaderSection>
-    {
-        public AppleMusicDownloaderSectionValidator()
-        {
-            RuleFor(x => x.CookiesPath).NotEmpty();
-        }
-    }
 
     public class DownloaderSection
     {
         [ConfigurationKeyName("PROVIDER")]
         public string Provider { get; init; } = "gamdl";
+        
+        [ConfigurationKeyName("GAMDL")]
+        public AppleMusicDownloaderSection Gamdl { get; init; } = new();
 
         [ConfigurationKeyName("YTDLP")]
         public YtDlpSection YtDlp { get; init; } = new();
 
+        public class AppleMusicDownloaderSection
+        {
+            [ConfigurationKeyName("COOKIES_PATH")]
+            public string? CookiesPath { get; init; }
+        }
+        
         public class YtDlpSection
         {
             [ConfigurationKeyName("COOKIES_PATH")]
@@ -138,7 +130,15 @@ public class AppSettings
                 .Must(provider => AllowedProviders.Contains(provider, StringComparer.OrdinalIgnoreCase))
                 .WithMessage("Provider must be one of: gamdl, ytdlp.");
 
+            RuleFor(x => x.Gamdl).NotNull();
             RuleFor(x => x.YtDlp).NotNull();
+
+            When(x => string.Equals(x.Provider, "gamdl", StringComparison.OrdinalIgnoreCase), () =>
+            {
+                RuleFor(x => x.Gamdl.CookiesPath)
+                    .NotEmpty()
+                    .WithMessage("DOWNLOADER__GAMDL__COOKIES_PATH is required when PROVIDER=gamdl.");
+            });
         }
     }
 }
@@ -150,10 +150,6 @@ public class AppSettingsValidator : AbstractValidator<AppSettings>
         RuleFor(x => x.AppleMusic)
             .NotEmpty()
             .SetValidator(new AppSettings.AppleMusicSectionValidator());
-        
-        RuleFor(x => x.AppleMusicDownloader)
-            .NotEmpty()
-            .SetValidator(new AppSettings.AppleMusicDownloaderSectionValidator());
 
         RuleFor(x => x.Downloader)
             .NotEmpty()

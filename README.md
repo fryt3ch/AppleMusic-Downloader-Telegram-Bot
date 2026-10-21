@@ -165,8 +165,8 @@ Fill in the `.env` file with your credentials:
 | `TELEGRAM__STORAGE_CHAT_ID`              |    ✅    | —                                  | Telegram chat/group ID for caching files       |
 | `APPLE_MUSIC__API_TOKEN`                 |    ✅    | —                                  | Apple Music JWT developer token                |
 | `APPLE_MUSIC__DEFAULT_STORE`             |          | `us`                               | Default iTunes storefront (`us`, `kz`, `ru`, …)|
-| `APPLE_MUSIC_DOWNLOADER__COOKIES_PATH`   |          | `/app/data/cookies.txt`            | Path to Netscape-format cookies file           |
 | `DOWNLOADER__PROVIDER`                   |          | `gamdl`                            | Audio file provider: `gamdl` (Apple) or `ytdlp` (YouTube) |
+| `DOWNLOADER__GAMDL__COOKIES_PATH`        |          | `/app/data/cookies.txt`            | Path to Netscape-format Apple Music cookies (required when `PROVIDER=gamdl`) |
 | `DOWNLOADER__YTDLP__COOKIES_PATH`        |          | —                                  | Optional Netscape cookies file for `ytdlp`     |
 | `TELEGRAM__SERVER_API_URL`               |          | `https://api.telegram.org`         | Telegram API endpoint                          |
 | `TELEGRAM__WEBHOOK__ENABLED`             |          | `false`                            | Enable webhook mode                            |

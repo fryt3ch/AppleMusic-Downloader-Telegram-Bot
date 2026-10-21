@@ -41,7 +41,7 @@ public sealed class GamdlSongFileProvider : ISongFileProvider
         var uniqueFileName = $"{Guid.NewGuid()}.m4a";
         var fullOutputPath = Path.Combine(tempDir, uniqueFileName);
         
-        var arguments = $"\"{BridgeScriptPath}\" \"{songUrl}\" \"{fullOutputPath}\" \"{_appSettings.AppleMusicDownloader.CookiesPath}\"";
+        var arguments = $"\"{BridgeScriptPath}\" \"{songUrl}\" \"{fullOutputPath}\" \"{_appSettings.Downloader.Gamdl.CookiesPath}\"";
 
         var startInfo = new ProcessStartInfo
         {
