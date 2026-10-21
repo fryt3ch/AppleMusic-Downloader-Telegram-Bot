@@ -51,6 +51,11 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
         services.AddScoped<IUpdateHandler, UpdateHandler>();
+        services.AddScoped<InlineQueryHandler>();
+        services.AddScoped<CallbackQueryHandler>();
+        services.AddScoped<MessageHandler>();
+        services.AddScoped<MusicPresenter>();
+        services.AddSingleton<SongDownloadCoordinator>();
         services.AddScoped<MusicService>();
         services.AddScoped<SongSender>();
         services.AddScoped<SearchResultElementInlineQueryResultProvider>();

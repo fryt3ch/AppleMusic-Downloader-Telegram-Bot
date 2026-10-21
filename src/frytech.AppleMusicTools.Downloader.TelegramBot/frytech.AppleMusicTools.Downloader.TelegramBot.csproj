@@ -26,4 +26,16 @@
       <PackageReference Include="Telegram.Bot" Version="22.9.5.3" />
     </ItemGroup>
 
+    <ItemGroup>
+      <EmbeddedResource Update="Resources\TelegramMessages.resx">
+        <Generator>ResXFileCodeGenerator</Generator>
+        <LastGenOutput>TelegramMessages.Designer.cs</LastGenOutput>
+      </EmbeddedResource>
+      <Compile Update="Resources\TelegramMessages.Designer.cs">
+        <DesignTime>True</DesignTime>
+        <AutoGen>True</AutoGen>
+        <DependentUpon>TelegramMessages.resx</DependentUpon>
+      </Compile>
+    </ItemGroup>
+
 </Project>
