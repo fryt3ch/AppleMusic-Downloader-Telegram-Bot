@@ -48,6 +48,7 @@
 - **Song Download** — download individual tracks as `.m4a` files with metadata
 - **Bulk Download** — download entire albums or playlists with live progress updates
 - **Smart Caching** — downloaded tracks are cached in a Telegram storage chat and served instantly on repeat requests
+- **Pluggable File Providers** — download audio via Apple Music (`gamdl`) or for free via YouTube (`yt-dlp`), while search, metadata, and cache IDs always stay on Apple Music
 - **Webhook & Polling** — supports both webhook mode (for production) and long-polling (for development)
 - **Local Bot API** — optional profile for running a local Telegram Bot API server to bypass file size limits
 - **Rate Limiting** — one concurrent download per user prevents overload
@@ -106,7 +107,7 @@
 | Backend          | ASP.NET Core (.NET 10.0)                |
 | Telegram API     | Telegram.Bot (custom fork)              |
 | Database         | SQLite via EF Core                      |
-| Download Engine  | Python 3 + gamdl (3.7.4)                |
+| Download Engine  | Python 3 + gamdl (3.7.4) / yt-dlp + Deno |
 | Containerization | Docker, Docker Compose                  |
 | Resilience       | Polly (retry policies), KeyedSemaphores |
 | Validation       | FluentValidation                        |
@@ -118,6 +119,31 @@
 1. **Apple Music Subscription** — needed to export authentication cookies for track decryption. Without this, downloads will fail.
 2. **Apple Developer JWT Token** — for Apple Music Catalog API access (search + metadata). See [Get Apple Music JWT Token](#3-get-apple-music-jwt-token).
 3. **Telegram Bot Token** — create a bot via [@BotFather](https://t.me/BotFather).
+
+### File Providers
+
+Search, metadata, and cache IDs always come from the Apple Music Catalog API. Only the actual audio file can be sourced from a different provider, selected via `DOWNLOADER__PROVIDER`:
+
+| Provider | Value    | Requirements                                  | Notes                                          |
+|----------|----------|-----------------------------------------------|------------------------------------------------|
+| Apple    | `gamdl`  | Apple Music subscription + cookies (default)  | Original `.m4a` from Apple Music                |
+| YouTube  | `ytdlp`  | `ffmpeg` + `yt-dlp[default]` + Deno (bundled in Docker image) | Free; searches YouTube and transcodes to `.m4a`. Optional cookies via `DOWNLOADER__YTDLP__COOKIES_PATH` |
+
+With the `ytdlp` provider an Apple Music subscription is **not** required — only the JWT token for search. YouTube may present bot checks on datacenter IPs; supply a cookies file to improve reliability.
+
+> The Docker image installs **Deno** and the `yt-dlp-ejs` package (`yt-dlp[default]`), which yt-dlp needs to solve YouTube's JavaScript challenges. It also forces `youtube:player_client=default,web_embedded` to work around a known yt-dlp bug where the TVHTML5 clients (`tv`/`tv_simply`/`tv_downgraded`) fail with `The page needs to be reloaded` ([yt-dlp#17389](https://github.com/yt-dlp/yt-dlp/issues/17389)).
+
+#### How the YouTube provider matches tracks
+
+Search, metadata, and cache IDs always stay on Apple Music. For each track the `ytdlp` provider builds a query from the Apple metadata (`<artist> - <title>`), requests the top 5 YouTube results, and picks the best match by:
+
+- **duration** closeness to the Apple track,
+- **title** similarity (noise like "official audio", "lyrics", "remaster" is stripped),
+- **channel** (preferring the artist's auto-generated `- Topic` channels).
+
+The selected audio is transcoded to `.m4a`.
+
+If nothing matches, the track is skipped with a per-track notice and the rest of an album/playlist still downloads. Failed tracks are **not** cached, so they are retried on the next request.
 
 ## Setup
 
@@ -139,7 +165,9 @@ Fill in the `.env` file with your credentials:
 | `TELEGRAM__STORAGE_CHAT_ID`              |    ✅    | —                                  | Telegram chat/group ID for caching files       |
 | `APPLE_MUSIC__API_TOKEN`                 |    ✅    | —                                  | Apple Music JWT developer token                |
 | `APPLE_MUSIC__DEFAULT_STORE`             |          | `us`                               | Default iTunes storefront (`us`, `kz`, `ru`, …)|
-| `APPLE_MUSIC_DOWNLOADER__COOKIES_PATH`   |          | `/app/data/cookies.txt`            | Path to Netscape-format cookies file           |
+| `DOWNLOADER__PROVIDER`                   |          | `gamdl`                            | Audio file provider: `gamdl` (Apple) or `ytdlp` (YouTube) |
+| `DOWNLOADER__GAMDL__COOKIES_PATH`        |          | `/app/data/cookies.txt`            | Path to Netscape-format Apple Music cookies (required when `PROVIDER=gamdl`) |
+| `DOWNLOADER__YTDLP__COOKIES_PATH`        |          | —                                  | Optional Netscape cookies file for `ytdlp`     |
 | `TELEGRAM__SERVER_API_URL`               |          | `https://api.telegram.org`         | Telegram API endpoint                          |
 | `TELEGRAM__WEBHOOK__ENABLED`             |          | `false`                            | Enable webhook mode                            |
 | `TELEGRAM__WEBHOOK__URL`                 |          | —                                  | Webhook callback URL (required if enabled)     |
@@ -262,7 +290,8 @@ During bulk downloads, a live status message shows progress: `Songs gathered: 5 
 ├── .env                            # Environment variables (sensitive)
 ├── src/
 │   ├── python/
-│   │   └── gamdl-bridge.py         # Python download bridge (gamdl)
+│   │   ├── gamdl-bridge.py         # Python download bridge (gamdl)
+│   │   └── ytdlp-bridge.py         # Python download bridge (yt-dlp)
 │   └── frytech.AppleMusicTools.Downloader.TelegramBot/
 │       ├── Program.cs              # App entry point, DI wiring
 │       ├── Configuration/
@@ -274,7 +303,8 @@ During bulk downloads, a live status message shows progress: `Songs gathered: 5 
 │       └── Services/
 │           ├── UpdateHandler.cs    # Main handler: messages, inline, callbacks
 │           ├── MusicService.cs     # Apple Music catalog API client
-│           ├── GamdlSongFileProvider.cs  # Python bridge invocation
+│           ├── GamdlSongFileProvider.cs  # Apple (gamdl) Python bridge invocation
+│           ├── YtDlpSongFileProvider.cs   # YouTube (yt-dlp) Python bridge invocation
 │           ├── SongCacher.cs       # SQLite + Telegram storage cache
 │           ├── SongSender.cs       # Sends audio to users
 │           └── ...                 # Interfaces, helpers

@@ -6,10 +6,15 @@ using Microsoft.Extensions.Options;
 
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services;
 
+[SongFileProvider(Name)]
 public sealed class GamdlSongFileProvider : ISongFileProvider
 {
+    public const string Name = "gamdl";
+
     private const string PythonExecutable = "python3";
     private const string BridgeScriptPath = "/app/gamdl-bridge.py";
+    
+    public string ProviderName => Name;
     
     private readonly AppSettings _appSettings;
     private readonly MusicService _musicService;
@@ -39,7 +44,7 @@ public sealed class GamdlSongFileProvider : ISongFileProvider
         var uniqueFileName = $"{Guid.NewGuid()}.m4a";
         var fullOutputPath = Path.Combine(tempDir, uniqueFileName);
         
-        var arguments = $"\"{BridgeScriptPath}\" \"{songUrl}\" \"{fullOutputPath}\" \"{_appSettings.AppleMusicDownloader.CookiesPath}\"";
+        var arguments = $"\"{BridgeScriptPath}\" \"{songUrl}\" \"{fullOutputPath}\" \"{_appSettings.Downloader.Gamdl.CookiesPath}\"";
 
         var startInfo = new ProcessStartInfo
         {

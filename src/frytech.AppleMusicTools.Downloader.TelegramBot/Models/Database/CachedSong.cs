@@ -24,4 +24,7 @@ public sealed class CachedSong
     
     [Required]
     public TimeSpan Duration { get; set; }
+
+    [Required]
+    public string Provider { get; set; } = null!;
 }

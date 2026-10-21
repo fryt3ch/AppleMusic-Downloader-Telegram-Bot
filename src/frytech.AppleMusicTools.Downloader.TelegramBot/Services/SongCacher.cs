@@ -1,4 +1,5 @@
 ﻿using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Database;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
@@ -31,7 +32,16 @@ public class SongCacher : ISongCacher
         if (cachedSong is null)
         {
             var song = await _musicService.GetSongAsync(songId, store);
-            var songFile = await _songFileProvider.GetSongFileAsync(song);
+
+            SongFile songFile;
+            try
+            {
+                songFile = await _songFileProvider.GetSongFileAsync(song);
+            }
+            catch (Exception exception)
+            {
+                throw new SongDownloadFailedException(song.Id, song.Attributes.Name, song.Attributes.ArtistName, exception);
+            }
 
             var uploadedFileMessage = await _client.SendAudio(
                 _storageChatId,
@@ -51,6 +61,7 @@ public class SongCacher : ISongCacher
                 Duration = song.Attributes.Duration,
                 FileId = uploadedFile.FileId,
                 FileUniqueId = uploadedFile.FileUniqueId,
+                Provider = _songFileProvider.ProviderName,
             };
 
             await _appDbContext.AddAsync(cachedSong, cancellationToken);

@@ -1,4 +1,5 @@
 ﻿using FluentValidation;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services;
 
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
     
@@ -9,9 +10,9 @@ public class AppSettings
 
     [ConfigurationKeyName("APPLE_MUSIC")]
     public required AppleMusicSection AppleMusic { get; init; }
-    
-    [ConfigurationKeyName("APPLE_MUSIC_DOWNLOADER")]
-    public required AppleMusicDownloaderSection AppleMusicDownloader { get; init; }
+
+    [ConfigurationKeyName("DOWNLOADER")]
+    public DownloaderSection Downloader { get; init; } = new();
 
     public class TelegramSection
     {
@@ -94,18 +95,51 @@ public class AppSettings
             RuleFor(x => x.StoreApiUrl).NotEmpty();
         }
     }
-    
-    public class AppleMusicDownloaderSection
+
+    public class DownloaderSection
     {
-        [ConfigurationKeyName("COOKIES_PATH")]
-        public required string CookiesPath { get; init; }
-    }
-    
-    public class AppleMusicDownloaderSectionValidator : AbstractValidator<AppleMusicDownloaderSection>
-    {
-        public AppleMusicDownloaderSectionValidator()
+        [ConfigurationKeyName("PROVIDER")]
+        public string Provider { get; init; } = "gamdl";
+        
+        [ConfigurationKeyName("GAMDL")]
+        public AppleMusicDownloaderSection Gamdl { get; init; } = new();
+
+        [ConfigurationKeyName("YTDLP")]
+        public YtDlpSection YtDlp { get; init; } = new();
+
+        public class AppleMusicDownloaderSection
         {
-            RuleFor(x => x.CookiesPath).NotEmpty();
+            [ConfigurationKeyName("COOKIES_PATH")]
+            public string? CookiesPath { get; init; }
+        }
+        
+        public class YtDlpSection
+        {
+            [ConfigurationKeyName("COOKIES_PATH")]
+            public string? CookiesPath { get; init; }
+        }
+    }
+
+    public class DownloaderSectionValidator : AbstractValidator<DownloaderSection>
+    {
+        private static readonly IReadOnlyList<string> AllowedProviders = SongFileProviderRegistry.Names;
+
+        public DownloaderSectionValidator()
+        {
+            RuleFor(x => x.Provider)
+                .NotEmpty()
+                .Must(provider => AllowedProviders.Contains(provider, StringComparer.OrdinalIgnoreCase))
+                .WithMessage(_ => $"Provider must be one of: {string.Join(", ", AllowedProviders)}.");
+
+            RuleFor(x => x.Gamdl).NotNull();
+            RuleFor(x => x.YtDlp).NotNull();
+
+            When(x => string.Equals(x.Provider, GamdlSongFileProvider.Name, StringComparison.OrdinalIgnoreCase), () =>
+            {
+                RuleFor(x => x.Gamdl.CookiesPath)
+                    .NotEmpty()
+                    .WithMessage("DOWNLOADER__GAMDL__COOKIES_PATH is required when PROVIDER=gamdl.");
+            });
         }
     }
 }
@@ -117,10 +151,10 @@ public class AppSettingsValidator : AbstractValidator<AppSettings>
         RuleFor(x => x.AppleMusic)
             .NotEmpty()
             .SetValidator(new AppSettings.AppleMusicSectionValidator());
-        
-        RuleFor(x => x.AppleMusicDownloader)
+
+        RuleFor(x => x.Downloader)
             .NotEmpty()
-            .SetValidator(new AppSettings.AppleMusicDownloaderSectionValidator());
+            .SetValidator(new AppSettings.DownloaderSectionValidator());
 
         RuleFor(x => x.Telegram)
             .NotEmpty()

@@ -66,7 +66,7 @@ public class Program
         services.AddScoped<SongSender>();
         services.AddScoped<SearchResultElementInlineQueryResultProvider>();
         services.AddScoped<ISongCacher, SongCacher>();
-        services.AddSingleton<ISongFileProvider, GamdlSongFileProvider>();
+        services.AddSongFileProviders();
         
         var app = builder.Build();
         
