@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 using frytech.AppleMusic.API.Extensions;
 using frytech.AppleMusic.API.Models.Core;
 using frytech.AppleMusic.API.Models.Enums;
@@ -21,7 +22,7 @@ public class UpdateHandler : IUpdateHandler
     private readonly SearchResultElementInlineQueryResultProvider _inlineQueryResultProvider;
     private readonly AppSettings _appSettings;
 
-    private static Dictionary<long, CancellationTokenSource> PendingDownloadsUsers = [];
+    private static readonly ConcurrentDictionary<long, CancellationTokenSource> PendingDownloadsUsers = new();
 
     public UpdateHandler(ITelegramBotClient client, MusicService musicService, IServiceProvider serviceProvider, ILogger<UpdateHandler> logger,
         SearchResultElementInlineQueryResultProvider inlineQueryResultProvider, IOptions<AppSettings> appSettings)
@@ -58,7 +59,7 @@ public class UpdateHandler : IUpdateHandler
             {
                 queryType = keyword switch
                 {
-                    "all" => QueryType.SearchSongs,
+                    "all" => QueryType.SearchAll,
                     "song" => QueryType.SearchSongs,
                     "album" => QueryType.SearchAlbums,
                     "artist" => QueryType.SearchAuthors,
@@ -132,11 +133,21 @@ public class UpdateHandler : IUpdateHandler
         }
         else if (update.Type == UpdateType.CallbackQuery)
         {
-            var data = update.CallbackQuery?.Data;
-            var message = update.CallbackQuery?.Message;
+            var callbackQuery = update.CallbackQuery;
+            var data = callbackQuery?.Data;
+            var message = callbackQuery?.Message;
             
-            if (data is not null && message is not null)
+            if (callbackQuery is not null && data is not null && message is not null)
             {
+                try
+                {
+                    await _client.AnswerCallbackQuery(callbackQuery.Id, cancellationToken: cancellationToken);
+                }
+                catch (Exception e)
+                {
+                    _logger.LogWarning(e, "Failed to answer callback query {CallbackQueryId}", callbackQuery.Id);
+                }
+
                 var replyParameters = new ReplyParameters() { AllowSendingWithoutReply = true, MessageId = message.MessageId, };
                 
                 if (data.StartsWith("ar_"))
@@ -164,21 +175,25 @@ public class UpdateHandler : IUpdateHandler
                     else if (data.StartsWith("dl_al_"))
                     {
                         var albumId = data.Replace("dl_al_", string.Empty);
+
+                        var albumTracks = await _musicService.GetAlbumTracksAsync(offset: 0, limit: 250, albumId, store);
                         
-                        songsIds =  _musicService.GetAlbumTracksAsync(offset: 0, limit: 250, albumId, store).Result.Where(x => x.ResourceType is ResourceType.Songs).Select(x => x.Id).ToArray();
+                        songsIds = albumTracks.Where(x => x.ResourceType is ResourceType.Songs).Select(x => x.Id).ToArray();
                     }
                     else if (data.StartsWith("dl_pl_"))
                     {
                         var playlistId = data.Replace("dl_pl_", string.Empty);
+
+                        var playlistTracks = await _musicService.GetPlaylistTracksAsync(offset: 0, limit: 250, playlistId, store);
                         
-                        songsIds =  _musicService.GetPlaylistTracksAsync(offset: 0, limit: 250, playlistId, store).Result.Where(x => x.ResourceType is ResourceType.Songs).Select(x => x.Id).ToArray();
+                        songsIds = playlistTracks.Where(x => x.ResourceType is ResourceType.Songs).Select(x => x.Id).ToArray();
                     }
                     else
                     {
                         throw new InvalidOperationException("Unknown DL type.");
                     }
                     
-                    await SendSongs(message, replyParameters, songsIds, store, limit: true, cancellationToken);
+                    await SendSongs(message.Chat, callbackQuery.From, replyParameters, songsIds, store, limit: true, cancellationToken);
                 }
             }
         }
@@ -237,7 +252,10 @@ public class UpdateHandler : IUpdateHandler
                 switch (resourceType)
                 {
                     case ResourceType.Songs:
-                        await SendSongs(message, replyParameters, [musicElementId], store, limit: false, cancellationToken);
+                        if (message.From is null)
+                            throw new InvalidOperationException("Anonymous downloads are not allowed.");
+
+                        await SendSongs(chat, message.From, replyParameters, [musicElementId], store, limit: false, cancellationToken);
                         break;
                     
                     case ResourceType.Albums:
@@ -440,50 +458,54 @@ public class UpdateHandler : IUpdateHandler
         }
     }
 
-    private async Task SendSongs(Message message, ReplyParameters replyParameters, IEnumerable<string> songs, string store, bool limit, CancellationToken cancellationToken)
+    private async Task SendSongs(Chat chat, User user, ReplyParameters replyParameters, IEnumerable<string> songs, string store, bool limit, CancellationToken cancellationToken)
     {
-        var user = message.From;
-        
-        if (user is null)
-            throw new InvalidOperationException("Anonymous downloads are not allowed.");
-        
-        var scope = _serviceProvider.CreateScope();
+        var songIds = songs as ICollection<string> ?? songs.ToArray();
 
         if (!limit)
         {
+            using var scope = _serviceProvider.CreateScope();
+
             var songsGatherer = scope.ServiceProvider.GetRequiredService<SongSender>();
-                            
-            await songsGatherer.SendSongs(message.Chat, songs, store, replyParameters, cancellationToken);
+
+            await songsGatherer.SendSongs(chat, songIds, store, replyParameters, cancellationToken);
 
             return;
         }
 
-        if (PendingDownloadsUsers.ContainsKey(user.Id))
-            await _client.SendMessage(message.Chat.Id, "You already have some pending requests!", replyParameters: replyParameters, cancellationToken: cancellationToken);
-        
         var downloadCts = new CancellationTokenSource();
-        PendingDownloadsUsers.Add(user.Id, downloadCts);
-                    
-        Task.Run(async () =>
+
+        if (!PendingDownloadsUsers.TryAdd(user.Id, downloadCts))
         {
+            await _client.SendMessage(chat.Id, "You already have some pending requests!", replyParameters: replyParameters, cancellationToken: cancellationToken);
+
+            downloadCts.Dispose();
+
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            using var scope = _serviceProvider.CreateScope();
+
             try
             {
                 var songsGatherer = scope.ServiceProvider.GetRequiredService<SongSender>();
-                            
-                await songsGatherer.SendSongs(message.Chat, songs, store, replyParameters, downloadCts.Token);
+
+                await songsGatherer.SendSongs(chat, songIds, store, replyParameters, downloadCts.Token);
             }
             catch (Exception e)
             {
-                await _client.SendMessage(message.Chat.Id, "Something went wrong with your latest songs request!");
+                await _client.SendMessage(chat.Id, "Something went wrong with your latest songs request!");
 
                 _logger.LogError(e, message: null);
             }
             finally
             {
-                scope.Dispose();
-                            
-                if (PendingDownloadsUsers.Remove(user.Id, out var cts))
-                    await cts.CancelAsync();
+                if (PendingDownloadsUsers.TryRemove(user.Id, out var cts))
+                    cts.Dispose();
+                else
+                    downloadCts.Dispose();
             }
         });
     }
