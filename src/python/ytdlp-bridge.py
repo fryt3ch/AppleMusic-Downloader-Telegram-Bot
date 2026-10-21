@@ -71,6 +71,11 @@ def pick_best(entries, expected_artist, expected_title, expected_duration):
     )
 
 
+def print_error(error):
+    message = str(error)
+    print(message if message.startswith("ERROR:") else f"ERROR: {message}")
+
+
 def main():
     if len(sys.argv) < 5:
         print("ERROR: Missing arguments")
@@ -94,6 +99,15 @@ def main():
         "quiet": True,
         "no_warnings": True,
         "noplaylist": True,
+        "js_runtimes": {"deno": {}},
+        "extractor_args": {
+            "youtube": {
+                # Avoid TVHTML5 clients (tv/tv_simply/tv_downgraded): they use a JS
+                # variant yt-dlp-ejs cannot solve yet, causing "The page needs to be
+                # reloaded" / UNPLAYABLE. See yt-dlp issue #17389.
+                "player_client": ["default", "web_embedded"],
+            },
+        },
     }
 
     if cookies_path and cookies_path != "-" and os.path.isfile(cookies_path):
@@ -105,7 +119,7 @@ def main():
         with yt_dlp.YoutubeDL(dict(base_opts)) as ydl:
             search_result = ydl.extract_info(f"ytsearch{SEARCH_RESULT_LIMIT}:{query}", download=False)
     except Exception as e:
-        print(f"ERROR: {e}")
+        print_error(e)
         return
 
     candidates = [entry for entry in (search_result or {}).get("entries") or [] if entry]
@@ -131,7 +145,7 @@ def main():
         with yt_dlp.YoutubeDL(download_opts) as ydl:
             ydl.extract_info(video_url, download=True)
     except Exception as e:
-        print(f"ERROR: {e}")
+        print_error(e)
         return
 
     if not custom_output_path.exists():

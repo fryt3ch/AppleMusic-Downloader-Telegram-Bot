@@ -31,6 +31,8 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0
 RUN apt-get update && apt-get install -y --no-install-recommends \
     sudo \
     ffmpeg \
+    curl \
+    unzip \
     python3 \
     python3-pip \
     python3-venv \
@@ -39,7 +41,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-RUN pip install --no-cache-dir gamdl==3.7.4 yt-dlp
+# Deno is required by yt-dlp to solve YouTube's JS challenges (EJS)
+RUN curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh \
+    && /usr/local/bin/deno --version
+
+RUN pip install --no-cache-dir gamdl==3.7.4 "yt-dlp[default]"
 
 WORKDIR /app
 USER app

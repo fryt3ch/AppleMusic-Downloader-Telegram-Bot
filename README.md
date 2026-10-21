@@ -107,7 +107,7 @@
 | Backend          | ASP.NET Core (.NET 10.0)                |
 | Telegram API     | Telegram.Bot (custom fork)              |
 | Database         | SQLite via EF Core                      |
-| Download Engine  | Python 3 + gamdl (3.7.4) / yt-dlp       |
+| Download Engine  | Python 3 + gamdl (3.7.4) / yt-dlp + Deno |
 | Containerization | Docker, Docker Compose                  |
 | Resilience       | Polly (retry policies), KeyedSemaphores |
 | Validation       | FluentValidation                        |
@@ -127,9 +127,11 @@ Search, metadata, and cache IDs always come from the Apple Music Catalog API. On
 | Provider | Value    | Requirements                                  | Notes                                          |
 |----------|----------|-----------------------------------------------|------------------------------------------------|
 | Apple    | `gamdl`  | Apple Music subscription + cookies (default)  | Original `.m4a` from Apple Music                |
-| YouTube  | `ytdlp`  | `ffmpeg` + `yt-dlp` (bundled in Docker image) | Free; searches YouTube and transcodes to `.m4a`. Optional cookies via `DOWNLOADER__YTDLP__COOKIES_PATH` |
+| YouTube  | `ytdlp`  | `ffmpeg` + `yt-dlp[default]` + Deno (bundled in Docker image) | Free; searches YouTube and transcodes to `.m4a`. Optional cookies via `DOWNLOADER__YTDLP__COOKIES_PATH` |
 
 With the `ytdlp` provider an Apple Music subscription is **not** required — only the JWT token for search. YouTube may present bot checks on datacenter IPs; supply a cookies file to improve reliability.
+
+> The Docker image installs **Deno** and the `yt-dlp-ejs` package (`yt-dlp[default]`), which yt-dlp needs to solve YouTube's JavaScript challenges. It also forces `youtube:player_client=default,web_embedded` to work around a known yt-dlp bug where the TVHTML5 clients (`tv`/`tv_simply`/`tv_downgraded`) fail with `The page needs to be reloaded` ([yt-dlp#17389](https://github.com/yt-dlp/yt-dlp/issues/17389)).
 
 #### How the YouTube provider matches tracks
 
