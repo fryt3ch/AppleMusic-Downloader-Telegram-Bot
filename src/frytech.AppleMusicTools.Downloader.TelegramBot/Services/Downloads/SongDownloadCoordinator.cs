@@ -26,20 +26,19 @@ public sealed class SongDownloadCoordinator
         _logger = logger;
     }
 
-    public Task StartSingleAsync(Chat chat, User user, IReadOnlyCollection<string> songIds, string store, ReplyParameters? replyParameters)
+    public Task StartSingleAsync(Chat chat, User user, string songId, string store, ReplyParameters? replyParameters, CancellationToken cancellationToken)
     {
         var downloadCts = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.ApplicationStopping);
         var downloadId = Guid.NewGuid().ToString("N");
 
         _logger.LogInformation(
-            "Enqueued single download {DownloadId} of {Count} songs for user {UserId} ({Username}) in chat {ChatId}",
+            "Enqueued single download {DownloadId} for user {UserId} ({Username}) in chat {ChatId}",
             downloadId,
-            songIds.Count,
             user.Id,
             user.Username,
             chat.Id);
 
-        RunAsync(chat, user, downloadId, songIds, store, replyParameters, downloadCts, onCompleted: null);
+        RunAsync(chat, user, downloadId, [songId], store, replyParameters, downloadCts, onCompleted: null);
 
         return Task.CompletedTask;
     }
@@ -76,8 +75,7 @@ public sealed class SongDownloadCoordinator
             user.Username,
             chat.Id);
 
-        RunAsync(chat, user, downloadId, songIds, store, replyParameters, downloadCts,
-            onCompleted: () => _pendingBulkDownloads.TryRemove(user.Id, out _));
+        RunAsync(chat, user, downloadId, songIds, store, replyParameters, downloadCts, onCompleted: () => _pendingBulkDownloads.TryRemove(user.Id, out _));
     }
 
     private void RunAsync(

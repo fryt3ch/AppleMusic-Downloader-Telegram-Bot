@@ -78,7 +78,7 @@ public sealed class CallbackQueryHandler
                     break;
 
                 case CallbackData.DownloadSong song:
-                    await _downloadCoordinator.StartBulkAsync(message.Chat, callbackQuery.From, [song.Id], store, replyParameters, cancellationToken);
+                    await _downloadCoordinator.StartSingleAsync(message.Chat, callbackQuery.From, song.Id, store, replyParameters, cancellationToken);
                     break;
 
                 case CallbackData.DownloadAlbum album:

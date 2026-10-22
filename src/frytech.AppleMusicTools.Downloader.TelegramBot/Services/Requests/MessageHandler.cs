@@ -130,7 +130,7 @@ public sealed class MessageHandler
                         return;
                     }
 
-                    await _downloadCoordinator.StartSingleAsync(message.Chat, message.From, [reference.Id], store, replyParameters);
+                    await _downloadCoordinator.StartSingleAsync(message.Chat, message.From, reference.Id, store, replyParameters, cancellationToken);
                     break;
 
                 case ResourceType.Albums:
