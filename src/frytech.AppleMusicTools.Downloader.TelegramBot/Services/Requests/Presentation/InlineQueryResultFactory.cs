@@ -1,21 +1,21 @@
-﻿
-using frytech.AppleMusic.API.Extensions;
+﻿using frytech.AppleMusic.API.Extensions;
 using frytech.AppleMusic.API.Models.Attributes;
 using frytech.AppleMusic.API.Models.Core;
 using frytech.AppleMusic.API.Models.Enums;
 using frytech.AppleMusic.API.Models.Resources;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Catalog;
 using Microsoft.Extensions.Options;
 using Telegram.Bot.Types.InlineQueryResults;
 
-namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services;
+namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests.Presentation;
 
-public class SearchResultElementInlineQueryResultProvider
+public class InlineQueryResultFactory
 {
     private readonly MusicService _musicService;
     private readonly AppSettings _appSettings;
 
-    public SearchResultElementInlineQueryResultProvider(MusicService musicService, IOptions<AppSettings> appSettings)
+    public InlineQueryResultFactory(MusicService musicService, IOptions<AppSettings> appSettings)
     {
         _musicService = musicService;
         _appSettings = appSettings.Value;

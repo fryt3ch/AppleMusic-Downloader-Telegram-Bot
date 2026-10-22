@@ -1,7 +1,7 @@
 using System.Reflection;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
 
-namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services;
+namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.SongFiles;
 
 public sealed record SongFileProviderRegistration(string Name, Type Type);
 

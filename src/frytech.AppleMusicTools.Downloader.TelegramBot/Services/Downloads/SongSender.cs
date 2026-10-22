@@ -3,12 +3,13 @@ using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Database;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Resources;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Caching;
 using KeyedSemaphores;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 
-namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services;
+namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Downloads;
 
 public class SongSender
 {
@@ -54,7 +55,7 @@ public class SongSender
                 {
                     try
                     {
-                        var cachedSong = await _songCacher.GetCachedSong(songId, store, cancellationToken);
+                        var cachedSong = await _songCacher.GetOrAddSong(songId, store, cancellationToken);
 
                         cachedSongs.Add(cachedSong);
                     }

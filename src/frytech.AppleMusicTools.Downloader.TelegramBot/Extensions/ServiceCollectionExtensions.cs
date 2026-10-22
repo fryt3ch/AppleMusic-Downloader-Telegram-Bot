@@ -4,6 +4,11 @@ using frytech.AppleMusic.API.Configuration;
 using frytech.AppleMusic.API.Extensions;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Caching;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Catalog;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Downloads;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests.Presentation;
 using frytech.Essentials.FluentValidation.Tools.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -50,17 +55,32 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
+        services
+            .AddScoped<MusicService>()
+            .AddScoped<ISongCacher, TelegramStorage>()
+            .AddSongFileProviders()
+            .AddDownloads()
+            .AddRequests();
+
+        return services;
+    }
+
+    public static IServiceCollection AddDownloads(this IServiceCollection services)
+    {
+        services.AddSingleton<SongDownloadCoordinator>();
+        services.AddScoped<SongSender>();
+
+        return services;
+    }
+
+    public static IServiceCollection AddRequests(this IServiceCollection services)
+    {
         services.AddScoped<IUpdateHandler, UpdateHandler>();
         services.AddScoped<InlineQueryHandler>();
         services.AddScoped<CallbackQueryHandler>();
         services.AddScoped<MessageHandler>();
         services.AddScoped<MusicPresenter>();
-        services.AddSingleton<SongDownloadCoordinator>();
-        services.AddScoped<MusicService>();
-        services.AddScoped<SongSender>();
-        services.AddScoped<SearchResultElementInlineQueryResultProvider>();
-        services.AddScoped<ISongCacher, SongCacher>();
-        services.AddSongFileProviders();
+        services.AddScoped<InlineQueryResultFactory>();
 
         return services;
     }

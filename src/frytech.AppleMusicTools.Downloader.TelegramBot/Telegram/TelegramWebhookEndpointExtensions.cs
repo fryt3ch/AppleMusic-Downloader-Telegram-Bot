@@ -1,5 +1,5 @@
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
-using frytech.AppleMusicTools.Downloader.TelegramBot.Services;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests;
 using Telegram.Bot.Types;
 
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Telegram;

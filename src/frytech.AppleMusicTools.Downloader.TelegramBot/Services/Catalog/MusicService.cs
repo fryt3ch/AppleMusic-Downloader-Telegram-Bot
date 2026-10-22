@@ -3,10 +3,10 @@ using frytech.AppleMusic.API.Clients.Interfaces;
 using frytech.AppleMusic.API.Models.Core;
 using frytech.AppleMusic.API.Models.Enums;
 using frytech.AppleMusic.API.Models.Resources;
-using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Extensions;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
 
-namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services;
+namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Catalog;
 
 public class MusicService
 {

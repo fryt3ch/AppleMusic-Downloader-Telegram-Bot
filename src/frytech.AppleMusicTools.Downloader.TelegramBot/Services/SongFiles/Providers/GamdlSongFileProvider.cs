@@ -2,9 +2,10 @@
 using frytech.AppleMusic.API.Models.Resources;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Catalog;
 using Microsoft.Extensions.Options;
 
-namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services;
+namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.SongFiles.Providers;
 
 [SongFileProvider(Name)]
 public sealed class GamdlSongFileProvider : ISongFileProvider
@@ -33,7 +34,7 @@ public sealed class GamdlSongFileProvider : ISongFileProvider
         var trackStream = await DownloadTrackAsStreamAsync(songUrl.AbsoluteUri);
 
         var fileName = SongFileNameBuilder.BuildFileName(song);
-        var songFile = new SongFile(fileName, trackStream);
+        var songFile = new SongFile(song, fileName, trackStream);
 
         return songFile;
     }

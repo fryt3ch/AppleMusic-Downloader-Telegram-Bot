@@ -3,7 +3,7 @@ using frytech.AppleMusicTools.Downloader.TelegramBot.Resources;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 
-namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services;
+namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Downloads;
 
 public sealed class SongDownloadCoordinator
 {

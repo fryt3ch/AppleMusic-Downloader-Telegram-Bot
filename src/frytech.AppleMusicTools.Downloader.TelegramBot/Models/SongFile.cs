@@ -1,3 +1,5 @@
-﻿namespace frytech.AppleMusicTools.Downloader.TelegramBot.Models;
+﻿using frytech.AppleMusic.API.Models.Resources;
 
-public record SongFile(string FileName, Stream Stream) : NamedStreamEntry(FileName, Stream);
+namespace frytech.AppleMusicTools.Downloader.TelegramBot.Models;
+
+public record SongFile(Song Song, string FileName, Stream Stream) : NamedStreamEntry(FileName, Stream);

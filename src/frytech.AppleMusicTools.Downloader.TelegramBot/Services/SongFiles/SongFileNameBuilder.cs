@@ -1,6 +1,6 @@
 ﻿using frytech.AppleMusic.API.Models.Resources;
 
-namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services;
+namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.SongFiles;
 
 public static class SongFileNameBuilder
 {

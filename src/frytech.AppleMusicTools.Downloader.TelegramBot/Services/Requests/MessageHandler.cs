@@ -1,13 +1,16 @@
 using frytech.AppleMusic.API.Models.Enums;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Resources;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Catalog;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Downloads;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests.Presentation;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
 
-namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services;
+namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests;
 
 public sealed class MessageHandler
 {

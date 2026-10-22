@@ -1,5 +1,6 @@
 ﻿using FluentValidation;
-using frytech.AppleMusicTools.Downloader.TelegramBot.Services;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.SongFiles;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.SongFiles.Providers;
 
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
     

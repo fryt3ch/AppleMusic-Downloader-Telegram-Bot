@@ -1,7 +1,7 @@
 ﻿using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 
-namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services;
+namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests;
 
 public sealed class UpdateHandler : IUpdateHandler
 {

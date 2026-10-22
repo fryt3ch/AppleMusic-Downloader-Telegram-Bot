@@ -5,7 +5,7 @@ using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
 using Microsoft.Extensions.Options;
 
-namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services;
+namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.SongFiles.Providers;
 
 [SongFileProvider(Name)]
 public sealed class YtDlpSongFileProvider : ISongFileProvider
@@ -35,7 +35,7 @@ public sealed class YtDlpSongFileProvider : ISongFileProvider
             song.Attributes.Duration.TotalSeconds);
 
         var fileName = SongFileNameBuilder.BuildFileName(song, OutputExtension);
-        var songFile = new SongFile(fileName, trackStream);
+        var songFile = new SongFile(song, fileName, trackStream);
 
         return songFile;
     }

@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
 
-namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services;
+namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests;
 
 public static partial class InlineQueryParser
 {

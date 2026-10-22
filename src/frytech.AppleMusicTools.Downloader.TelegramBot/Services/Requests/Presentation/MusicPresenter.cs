@@ -1,12 +1,13 @@
 using frytech.AppleMusic.API.Extensions;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Catalog;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 
-namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services;
+namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests.Presentation;
 
 public sealed class MusicPresenter
 {

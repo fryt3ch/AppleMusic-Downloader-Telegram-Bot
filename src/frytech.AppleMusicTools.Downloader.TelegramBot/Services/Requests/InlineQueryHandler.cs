@@ -1,28 +1,30 @@
 using frytech.AppleMusic.API.Models.Core;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Catalog;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests.Presentation;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 
-namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services;
+namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests;
 
 public sealed class InlineQueryHandler
 {
     private readonly ITelegramBotClient _client;
     private readonly MusicService _musicService;
-    private readonly SearchResultElementInlineQueryResultProvider _inlineQueryResultProvider;
+    private readonly InlineQueryResultFactory _inlineQueryResultFactory;
     private readonly AppSettings _appSettings;
 
     public InlineQueryHandler(
         ITelegramBotClient client,
         MusicService musicService,
-        SearchResultElementInlineQueryResultProvider inlineQueryResultProvider,
+        InlineQueryResultFactory inlineQueryResultFactory,
         IOptions<AppSettings> appSettings)
     {
         _client = client;
         _musicService = musicService;
-        _inlineQueryResultProvider = inlineQueryResultProvider;
+        _inlineQueryResultFactory = inlineQueryResultFactory;
         _appSettings = appSettings.Value;
     }
 
@@ -38,7 +40,7 @@ public sealed class InlineQueryHandler
 
         await _client.AnswerInlineQuery(
             inlineQuery.Id,
-            results.Select(_inlineQueryResultProvider.Provide),
+            results.Select(_inlineQueryResultFactory.Provide),
             nextOffset: InlineQueryParser.MapOffsetToString(nextOffset),
             cancellationToken: cancellationToken);
     }
