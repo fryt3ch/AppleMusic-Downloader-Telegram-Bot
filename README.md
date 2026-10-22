@@ -167,6 +167,7 @@ Fill in the `.env` file with your credentials:
 | `APPLE_MUSIC__API_TOKEN`                 |    ✅    | —                                  | Apple Music JWT developer token                |
 | `APPLE_MUSIC__DEFAULT_STORE`             |          | `us`                               | Default iTunes storefront (`us`, `kz`, `ru`, …)|
 | `DOWNLOADER__PROVIDER`                   |          | `gamdl`                            | Audio file provider: `gamdl` (Apple) or `ytdlp` (YouTube) |
+| `DOWNLOADER__PROCESS_TIMEOUT_SECONDS`    |          | `300`                              | Timeout for a provider download process (Python) |
 | `DOWNLOADER__GAMDL__COOKIES_PATH`        |          | `/app/data/cookies.txt`            | Path to Netscape-format Apple Music cookies (required when `PROVIDER=gamdl`) |
 | `DOWNLOADER__YTDLP__COOKIES_PATH`        |          | —                                  | Optional Netscape cookies file for `ytdlp`     |
 | `TELEGRAM__SERVER_API_URL`               |          | `https://api.telegram.org`         | Telegram API endpoint                          |

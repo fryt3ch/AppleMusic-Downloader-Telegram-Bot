@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using frytech.AppleMusic.API.Models.Resources;
+﻿using frytech.AppleMusic.API.Models.Resources;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Catalog;
@@ -12,84 +11,68 @@ public sealed class GamdlSongFileProvider : SongFileProviderBase
 {
     public const string Name = "gamdl";
 
-    private const string PythonExecutable = "python3";
     private const string BridgeScriptPath = "/app/gamdl-bridge.py";
-    
+
+    public override string ProviderName => Name;
+
     private readonly AppSettings _appSettings;
+    private readonly PythonProcessRunner _runner;
     private readonly ILogger<GamdlSongFileProvider> _logger;
 
-    public GamdlSongFileProvider(IOptions<AppSettings> appSettings, AppleMusicCatalog catalog, ILogger<GamdlSongFileProvider> logger)
+    public GamdlSongFileProvider(
+        IOptions<AppSettings> appSettings,
+        AppleMusicCatalog catalog,
+        PythonProcessRunner runner,
+        ILogger<GamdlSongFileProvider> logger)
         : base(catalog)
     {
-        _logger = logger;
         _appSettings = appSettings.Value;
+        _runner = runner;
+        _logger = logger;
     }
-    
-    public override string ProviderName => Name;
-    
+
     protected override async Task<SongFile> GetSongFileAsync(Song song, CancellationToken cancellationToken)
     {
         var songUrl = AppleMusicUrl.Create(song.ResourceType, song.Id, _appSettings.AppleMusic.DefaultStore);
-        var trackStream = await DownloadTrackAsStreamAsync(songUrl.AbsoluteUri);
+        var trackStream = await DownloadTrackAsStreamAsync(songUrl.AbsoluteUri, cancellationToken);
 
         var fileName = SongFileNameBuilder.BuildFileName(song);
         var songFile = new SongFile(song, fileName, trackStream, ProviderName);
 
         return songFile;
     }
-    
-    private async Task<Stream> DownloadTrackAsStreamAsync(string songUrl)
+
+    private async Task<Stream> DownloadTrackAsStreamAsync(string songUrl, CancellationToken cancellationToken)
     {
         var tempDir = Path.GetTempPath();
         var uniqueFileName = $"{Guid.NewGuid()}.m4a";
         var fullOutputPath = Path.Combine(tempDir, uniqueFileName);
-        
-        var arguments = $"\"{BridgeScriptPath}\" \"{songUrl}\" \"{fullOutputPath}\" \"{_appSettings.Downloader.Gamdl.CookiesPath}\"";
 
-        var startInfo = new ProcessStartInfo
+        var result = await _runner.RunAsync(
+            BridgeScriptPath,
+            [songUrl, fullOutputPath, _appSettings.Downloader.Gamdl.CookiesPath ?? string.Empty],
+            cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(result.StandardError))
+            _logger.LogWarning("gamdl stderr for {SongUrl}: {Error}", songUrl, result.StandardError);
+
+        if (result.ExitCode != 0 || !result.StandardOutput.Contains("SUCCESS") || !File.Exists(fullOutputPath))
         {
-            FileName = PythonExecutable,
-            Arguments = arguments,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            WorkingDirectory = tempDir,
-        };
+            if (File.Exists(fullOutputPath))
+                File.Delete(fullOutputPath);
 
-        using (var process = new Process())
-        {
-            process.StartInfo = startInfo;
-            process.Start();
-            
-            var output = await process.StandardOutput.ReadToEndAsync();
-            var error = await process.StandardError.ReadToEndAsync();
-
-            await process.WaitForExitAsync();
-            
-            _logger.LogTrace(output);
-            
-            if (process.ExitCode != 0 || !string.IsNullOrEmpty(error))
-            {
-                if (File.Exists(fullOutputPath))
-                    File.Delete(fullOutputPath);
-                
-                throw new InvalidOperationException($"Python script failed.\nExitCode: {process.ExitCode}\nError: {error}");
-            }
+            throw new InvalidOperationException(
+                $"gamdl bridge failed.\nExitCode: {result.ExitCode}\nOutput: {result.StandardOutput}\nError: {result.StandardError}");
         }
-        
-        if (!File.Exists(fullOutputPath))
-            throw new FileNotFoundException($"Gamdl script was SUCCESS, but output file was not found at: {fullOutputPath}");
-        
-        var fileStream = new FileStream(
-            fullOutputPath, 
-            FileMode.Open, 
-            FileAccess.Read, 
-            FileShare.None, 
-            bufferSize: 4096, 
-            options: FileOptions.DeleteOnClose | FileOptions.Asynchronous
-        );
 
-        return fileStream;
+        _logger.LogDebug("gamdl bridge produced {OutputPath}", fullOutputPath);
+
+        return new FileStream(
+            fullOutputPath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.None,
+            bufferSize: 4096,
+            options: FileOptions.DeleteOnClose | FileOptions.Asynchronous);
     }
 }

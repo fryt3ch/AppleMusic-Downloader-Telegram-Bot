@@ -30,6 +30,8 @@ public sealed class SongDownloadCoordinator
     {
         var downloadCts = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.ApplicationStopping);
 
+        _logger.LogInformation("Enqueued single download of {Count} songs in chat {ChatId}", songIds.Count, chat.Id);
+
         RunAsync(chat, songIds, store, replyParameters, downloadCts, onCompleted: null);
 
         return Task.CompletedTask;
@@ -43,6 +45,8 @@ public sealed class SongDownloadCoordinator
         {
             downloadCts.Dispose();
 
+            _logger.LogWarning("Bulk download already pending for user {UserId} in chat {ChatId}", user.Id, chat.Id);
+
             await _client.SendMessage(
                 chat.Id,
                 TelegramMessages.PendingDownload,
@@ -51,6 +55,12 @@ public sealed class SongDownloadCoordinator
 
             return;
         }
+
+        _logger.LogInformation(
+            "Enqueued bulk download of {Count} songs for user {UserId} in chat {ChatId}",
+            songIds.Count,
+            user.Id,
+            chat.Id);
 
         RunAsync(chat, songIds, store, replyParameters, downloadCts,
             onCompleted: () => _pendingBulkDownloads.TryRemove(user.Id, out _));
@@ -66,6 +76,8 @@ public sealed class SongDownloadCoordinator
     {
         _ = Task.Run(async () =>
         {
+            _logger.LogDebug("Starting background download in chat {ChatId}", chat.Id);
+
             try
             {
                 await using var scope = _scopeFactory.CreateAsyncScope();
@@ -76,7 +88,7 @@ public sealed class SongDownloadCoordinator
             }
             catch (OperationCanceledException) when (downloadCts.IsCancellationRequested)
             {
-                // Application is stopping; nothing to report.
+                _logger.LogInformation("Download in chat {ChatId} was cancelled", chat.Id);
             }
             catch (Exception exception)
             {
@@ -96,6 +108,8 @@ public sealed class SongDownloadCoordinator
                 onCompleted?.Invoke();
 
                 downloadCts.Dispose();
+
+                _logger.LogDebug("Background download in chat {ChatId} completed", chat.Id);
             }
         });
     }

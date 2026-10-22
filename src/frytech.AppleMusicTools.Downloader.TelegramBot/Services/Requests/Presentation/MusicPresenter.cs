@@ -2,6 +2,7 @@ using frytech.AppleMusic.API.Extensions;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Requests;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Catalog;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Telegram;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
@@ -14,12 +15,18 @@ public sealed class MusicPresenter
     private readonly ITelegramBotClient _client;
     private readonly AppleMusicCatalog _catalog;
     private readonly AppSettings _appSettings;
+    private readonly ILogger<MusicPresenter> _logger;
 
-    public MusicPresenter(ITelegramBotClient client, AppleMusicCatalog catalog, IOptions<AppSettings> appSettings)
+    public MusicPresenter(
+        ITelegramBotClient client,
+        AppleMusicCatalog catalog,
+        IOptions<AppSettings> appSettings,
+        ILogger<MusicPresenter> logger)
     {
         _client = client;
         _catalog = catalog;
         _appSettings = appSettings.Value;
+        _logger = logger;
     }
 
     public async Task ShowArtistAsync(string artistId, string store, Chat chat, Message? contextMessage, ReplyParameters? replyParameters, CancellationToken cancellationToken)
@@ -80,26 +87,70 @@ public sealed class MusicPresenter
         CancellationToken cancellationToken)
     {
         if (contextMessage is not null)
-            await _client.DeleteMessage(chat.Id, contextMessage.MessageId, cancellationToken);
+        {
+            try
+            {
+                await _client.DeleteMessage(chat.Id, contextMessage.MessageId, cancellationToken);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(
+                    exception,
+                    "Failed to delete context message {MessageId} in chat {ChatId}",
+                    contextMessage.MessageId,
+                    chat.Id);
+            }
+        }
+
+        _logger.LogDebug("Sending music card to chat {ChatId}", chat.Id);
 
         if (artworkUrl is null)
         {
-            await _client.SendMessage(
+            await SendTextCardAsync(chat, caption, replyMarkup, replyParameters, cancellationToken);
+
+            return;
+        }
+
+        try
+        {
+            await TelegramApiRetry.ExecuteAsync(
+                requestToken => _client.SendPhoto(
+                    chat.Id,
+                    InputFile.FromUri(artworkUrl),
+                    caption: caption,
+                    replyParameters: replyParameters,
+                    replyMarkup: replyMarkup,
+                    cancellationToken: requestToken),
+                _logger,
+                cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Failed to send photo card in chat {ChatId}; falling back to text", chat.Id);
+
+            await SendTextCardAsync(chat, caption, replyMarkup, replyParameters, cancellationToken);
+        }
+    }
+
+    private async Task SendTextCardAsync(
+        Chat chat,
+        string caption,
+        InlineKeyboardMarkup replyMarkup,
+        ReplyParameters? replyParameters,
+        CancellationToken cancellationToken)
+    {
+        await TelegramApiRetry.ExecuteAsync(
+            requestToken => _client.SendMessage(
                 chat.Id,
                 caption,
                 replyParameters: replyParameters,
                 replyMarkup: replyMarkup,
-                cancellationToken: cancellationToken);
-        }
-        else
-        {
-            await _client.SendPhoto(
-                chat.Id,
-                InputFile.FromUri(artworkUrl),
-                caption: caption,
-                replyParameters: replyParameters,
-                replyMarkup: replyMarkup,
-                cancellationToken: cancellationToken);
-        }
+                cancellationToken: requestToken),
+            _logger,
+            cancellationToken);
     }
 }

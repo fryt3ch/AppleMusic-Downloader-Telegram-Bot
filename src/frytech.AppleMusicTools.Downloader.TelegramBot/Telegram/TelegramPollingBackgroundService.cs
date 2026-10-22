@@ -54,7 +54,7 @@ public sealed class TelegramPollingBackgroundService : BackgroundService
         }
         catch (OperationCanceledException)
         {
-            // Normal shutdown.
+            _logger.LogInformation("Telegram polling stopped");
         }
     }
 }

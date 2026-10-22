@@ -19,16 +19,20 @@ public static class TelegramWebhookEndpointExtensions
             ILoggerFactory loggerFactory,
             CancellationToken cancellationToken) =>
         {
+            var logger = loggerFactory.CreateLogger("Telegram.Webhook");
+
             if (!string.IsNullOrEmpty(webhook.SecretToken) &&
                 !string.Equals(
                     httpContext.Request.Headers[SecretTokenHeader].ToString(),
                     webhook.SecretToken,
                     StringComparison.Ordinal))
             {
+                logger.LogWarning("Rejected Telegram webhook request with an invalid secret token");
+
                 return Results.Unauthorized();
             }
 
-            var logger = loggerFactory.CreateLogger("Telegram.Webhook");
+            logger.LogDebug("Received Telegram update {UpdateId} of type {UpdateType}", update.Id, update.Type);
 
             try
             {

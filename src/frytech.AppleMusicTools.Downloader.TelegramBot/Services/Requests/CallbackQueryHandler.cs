@@ -50,37 +50,72 @@ public sealed class CallbackQueryHandler
         var data = callbackQuery.Data;
 
         if (message is null || data is null || !CallbackData.TryParse(data, out var callbackData))
+        {
+            _logger.LogWarning("Ignoring callback query {CallbackQueryId} with invalid payload {Data}", callbackQuery.Id, data);
+
             return;
+        }
 
         var store = _appSettings.AppleMusic.DefaultStore;
         var replyParameters = new ReplyParameters { AllowSendingWithoutReply = true, MessageId = message.MessageId };
 
-        switch (callbackData)
+        _logger.LogInformation(
+            "Handling callback {CallbackAction} for query {CallbackQueryId} in chat {ChatId}",
+            callbackData.GetType().Name,
+            callbackQuery.Id,
+            message.Chat.Id);
+
+        try
         {
-            case CallbackData.ShowArtist artist:
-                await _musicPresenter.ShowArtistAsync(artist.Id, store, message.Chat, contextMessage: message, replyParameters: null, cancellationToken);
-                break;
+            switch (callbackData)
+            {
+                case CallbackData.ShowArtist artist:
+                    await _musicPresenter.ShowArtistAsync(artist.Id, store, message.Chat, contextMessage: message, replyParameters: null, cancellationToken);
+                    break;
 
-            case CallbackData.ShowAlbum album:
-                await _musicPresenter.ShowAlbumAsync(album.Id, store, message.Chat, contextMessage: message, replyParameters: null, cancellationToken);
-                break;
+                case CallbackData.ShowAlbum album:
+                    await _musicPresenter.ShowAlbumAsync(album.Id, store, message.Chat, contextMessage: message, replyParameters: null, cancellationToken);
+                    break;
 
-            case CallbackData.DownloadSong song:
-                await _downloadCoordinator.StartBulkAsync(message.Chat, callbackQuery.From, [song.Id], store, replyParameters, cancellationToken);
-                break;
+                case CallbackData.DownloadSong song:
+                    await _downloadCoordinator.StartBulkAsync(message.Chat, callbackQuery.From, [song.Id], store, replyParameters, cancellationToken);
+                    break;
 
-            case CallbackData.DownloadAlbum album:
-                var albumSongIds = await GetAlbumSongIdsAsync(album.Id, store);
-                await _downloadCoordinator.StartBulkAsync(message.Chat, callbackQuery.From, albumSongIds, store, replyParameters, cancellationToken);
-                break;
+                case CallbackData.DownloadAlbum album:
+                    var albumSongIds = await GetAlbumSongIdsAsync(album.Id, store);
+                    await _downloadCoordinator.StartBulkAsync(message.Chat, callbackQuery.From, albumSongIds, store, replyParameters, cancellationToken);
+                    break;
 
-            case CallbackData.DownloadPlaylist playlist:
-                var playlistSongIds = await GetPlaylistSongIdsAsync(playlist.Id, store);
-                await _downloadCoordinator.StartBulkAsync(message.Chat, callbackQuery.From, playlistSongIds, store, replyParameters, cancellationToken);
-                break;
+                case CallbackData.DownloadPlaylist playlist:
+                    var playlistSongIds = await GetPlaylistSongIdsAsync(playlist.Id, store);
+                    await _downloadCoordinator.StartBulkAsync(message.Chat, callbackQuery.From, playlistSongIds, store, replyParameters, cancellationToken);
+                    break;
 
-            default:
-                throw new InvalidOperationException($"Unknown callback payload: {data}");
+                default:
+                    _logger.LogWarning("Unsupported callback payload {Data}", data);
+                    break;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to handle callback {CallbackQueryId} with payload {Data}", callbackQuery.Id, data);
+
+            try
+            {
+                await _client.SendMessage(
+                    message.Chat.Id,
+                    "Couldn't load this item. Please try again later.",
+                    replyParameters: replyParameters,
+                    cancellationToken: cancellationToken);
+            }
+            catch (Exception sendException)
+            {
+                _logger.LogWarning(sendException, "Failed to report callback error to chat {ChatId}", message.Chat.Id);
+            }
         }
     }
 

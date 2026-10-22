@@ -8,6 +8,8 @@ public static class SongFileProviderExtensions
 {
     public static IServiceCollection AddSongFileProviders(this IServiceCollection services)
     {
+        services.AddScoped<PythonProcessRunner>();
+
         foreach (var registration in SongFileProviderRegistry.All)
             services.AddKeyedScoped(typeof(ISongFileProvider), registration.Name, registration.Type);
 

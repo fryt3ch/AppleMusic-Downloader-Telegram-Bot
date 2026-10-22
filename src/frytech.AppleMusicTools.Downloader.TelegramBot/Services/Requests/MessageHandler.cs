@@ -18,36 +18,47 @@ public sealed class MessageHandler
     private readonly MusicPresenter _musicPresenter;
     private readonly SongDownloadCoordinator _downloadCoordinator;
     private readonly AppSettings _appSettings;
+    private readonly ILogger<MessageHandler> _logger;
 
     public MessageHandler(
         ITelegramBotClient client,
         MusicPresenter musicPresenter,
         SongDownloadCoordinator downloadCoordinator,
-        IOptions<AppSettings> appSettings)
+        IOptions<AppSettings> appSettings,
+        ILogger<MessageHandler> logger)
     {
         _client = client;
         _musicPresenter = musicPresenter;
         _downloadCoordinator = downloadCoordinator;
         _appSettings = appSettings.Value;
+        _logger = logger;
     }
 
     public async Task HandleAsync(Message message, CancellationToken cancellationToken)
     {
         if (message.Entities?.Any(entity => entity.Type == MessageEntityType.BotCommand) is true)
         {
+            _logger.LogDebug("Handling command message {MessageId} in chat {ChatId}", message.MessageId, message.Chat.Id);
+
             await HandleCommandAsync(message, cancellationToken);
 
             return;
         }
 
         if (message.Type == MessageType.Text)
+        {
+            _logger.LogDebug("Handling text message {MessageId} in chat {ChatId}", message.MessageId, message.Chat.Id);
+
             await HandleTextAsync(message, cancellationToken);
+        }
     }
 
     private async Task HandleCommandAsync(Message message, CancellationToken cancellationToken)
     {
         if (message.EntityValues?.Contains("/start") is not true)
             return;
+
+        _logger.LogInformation("Received /start command in chat {ChatId}", message.Chat.Id);
 
         var replyMarkup = new InlineKeyboardMarkup()
             .AddButton(new InlineKeyboardButton("Search") { SwitchInlineQueryCurrentChat = " " })
@@ -69,6 +80,8 @@ public sealed class MessageHandler
 
         if (!Uri.TryCreate(message.Text, UriKind.Absolute, out var targetUrl))
         {
+            _logger.LogDebug("Received non-URL text from chat {ChatId}", message.Chat.Id);
+
             await _client.SendMessage(
                 message.Chat.Id,
                 TelegramMessages.WrongUrlFormat,
@@ -80,6 +93,8 @@ public sealed class MessageHandler
 
         if (!AppleMusicUrl.TryParse(targetUrl, out var reference) || reference is null)
         {
+            _logger.LogWarning("Received unsupported URL {Url} from chat {ChatId}", targetUrl, message.Chat.Id);
+
             await _client.SendMessage(
                 message.Chat.Id,
                 TelegramMessages.WrongAppleMusicUrlFormat,
@@ -89,31 +104,59 @@ public sealed class MessageHandler
             return;
         }
 
+        _logger.LogInformation(
+            "Resolved Apple Music {ResourceType} {ResourceId} from URL in chat {ChatId}",
+            reference.ResourceType,
+            reference.Id,
+            message.Chat.Id);
+
         var store = _appSettings.AppleMusic.DefaultStore;
 
-        switch (reference.ResourceType)
+        try
         {
-            case ResourceType.Songs:
-                if (message.From is null)
-                    throw new InvalidOperationException("Anonymous downloads are not allowed.");
+            switch (reference.ResourceType)
+            {
+                case ResourceType.Songs:
+                    if (message.From is null)
+                    {
+                        _logger.LogWarning("Ignoring anonymous song download request in chat {ChatId}", message.Chat.Id);
 
-                await _downloadCoordinator.StartSingleAsync(message.Chat, [reference.Id], store, replyParameters);
-                break;
+                        return;
+                    }
 
-            case ResourceType.Albums:
-                await _musicPresenter.ShowAlbumAsync(reference.Id, store, message.Chat, contextMessage: null, replyParameters, cancellationToken);
-                break;
+                    await _downloadCoordinator.StartSingleAsync(message.Chat, [reference.Id], store, replyParameters);
+                    break;
 
-            case ResourceType.Artists:
-                await _musicPresenter.ShowArtistAsync(reference.Id, store, message.Chat, contextMessage: null, replyParameters, cancellationToken);
-                break;
+                case ResourceType.Albums:
+                    await _musicPresenter.ShowAlbumAsync(reference.Id, store, message.Chat, contextMessage: null, replyParameters, cancellationToken);
+                    break;
 
-            case ResourceType.Playlists:
-                await _musicPresenter.ShowPlaylistAsync(reference.Id, store, message.Chat, contextMessage: null, replyParameters, cancellationToken);
-                break;
+                case ResourceType.Artists:
+                    await _musicPresenter.ShowArtistAsync(reference.Id, store, message.Chat, contextMessage: null, replyParameters, cancellationToken);
+                    break;
 
-            default:
-                throw new InvalidOperationException("Unknown music element type.");
+                case ResourceType.Playlists:
+                    await _musicPresenter.ShowPlaylistAsync(reference.Id, store, message.Chat, contextMessage: null, replyParameters, cancellationToken);
+                    break;
+
+                default:
+                    _logger.LogWarning("Unsupported music element type {ResourceType}", reference.ResourceType);
+                    break;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to handle Apple Music URL {Url} in chat {ChatId}", targetUrl, message.Chat.Id);
+
+            await _client.SendMessage(
+                message.Chat.Id,
+                "Couldn't load this item. Please try again later.",
+                replyParameters: replyParameters,
+                cancellationToken: cancellationToken);
         }
     }
 }

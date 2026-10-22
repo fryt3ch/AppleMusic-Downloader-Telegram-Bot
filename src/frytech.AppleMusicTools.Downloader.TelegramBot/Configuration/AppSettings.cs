@@ -88,6 +88,9 @@ public class AppSettings
             RuleFor(x => x.StorageChatId).NotEmpty();
             RuleFor(x => x.BotToken).NotEmpty();
             RuleFor(x => x.ServerApiUrl).NotEmpty();
+            RuleFor(x => x.ServerApiUrl).Must(uri => uri is { IsAbsoluteUri: true }).WithMessage("Telegram ServerApiUrl must be an absolute URI.");
+            RuleFor(x => x.ThumbnailSize).GreaterThan(0);
+            RuleFor(x => x.ThumbnailPreviewSize).GreaterThan(0);
             RuleFor(x => x.ProgressUpdateIntervalSeconds).InclusiveBetween(0, 60);
             
             RuleFor(x => x.Webhook!)
@@ -115,6 +118,7 @@ public class AppSettings
             RuleFor(x => x.ApiToken).NotEmpty();
             RuleFor(x => x.DefaultStore).NotEmpty();
             RuleFor(x => x.StoreApiUrl).NotEmpty();
+            RuleFor(x => x.StoreApiUrl).Must(url => Uri.TryCreate(url, UriKind.Absolute, out _)).WithMessage("Apple Music StoreApiUrl must be an absolute URI.");
         }
     }
 
@@ -122,6 +126,9 @@ public class AppSettings
     {
         [ConfigurationKeyName("PROVIDER")]
         public string Provider { get; init; } = "gamdl";
+
+        [ConfigurationKeyName("PROCESS_TIMEOUT_SECONDS")]
+        public int ProcessTimeoutSeconds { get; init; } = 300;
         
         [ConfigurationKeyName("GAMDL")]
         public AppleMusicDownloaderSection Gamdl { get; init; } = new();
@@ -155,6 +162,7 @@ public class AppSettings
 
             RuleFor(x => x.Gamdl).NotNull();
             RuleFor(x => x.YtDlp).NotNull();
+            RuleFor(x => x.ProcessTimeoutSeconds).InclusiveBetween(1, 86400);
 
             When(x => string.Equals(x.Provider, GamdlSongFileProvider.Name, StringComparison.OrdinalIgnoreCase), () =>
             {

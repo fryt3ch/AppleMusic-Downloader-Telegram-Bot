@@ -26,6 +26,10 @@ public abstract class SongFileProviderBase : ISongFileProvider
 
             return await GetSongFileAsync(song, cancellationToken);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (SongDownloadFailedException)
         {
             throw;

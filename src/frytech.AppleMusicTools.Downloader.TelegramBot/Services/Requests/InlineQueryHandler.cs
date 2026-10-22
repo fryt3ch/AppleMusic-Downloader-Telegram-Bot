@@ -4,9 +4,11 @@ using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Requests;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Catalog;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests.Presentation;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Telegram;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.InlineQueryResults;
 
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests;
 
@@ -16,17 +18,20 @@ public sealed class InlineQueryHandler
     private readonly AppleMusicCatalog _catalog;
     private readonly InlineQueryResultFactory _inlineQueryResultFactory;
     private readonly AppSettings _appSettings;
+    private readonly ILogger<InlineQueryHandler> _logger;
 
     public InlineQueryHandler(
         ITelegramBotClient client,
         AppleMusicCatalog catalog,
         InlineQueryResultFactory inlineQueryResultFactory,
-        IOptions<AppSettings> appSettings)
+        IOptions<AppSettings> appSettings,
+        ILogger<InlineQueryHandler> logger)
     {
         _client = client;
         _catalog = catalog;
         _inlineQueryResultFactory = inlineQueryResultFactory;
         _appSettings = appSettings.Value;
+        _logger = logger;
     }
 
     public async Task HandleAsync(InlineQuery inlineQuery, CancellationToken cancellationToken)
@@ -34,20 +39,82 @@ public sealed class InlineQueryHandler
         var request = InlineQueryParser.Parse(inlineQuery.Query, inlineQuery.Offset);
 
         if (request is null)
+        {
+            _logger.LogDebug("Ignoring empty inline query {InlineQueryId}", inlineQuery.Id);
+
             return;
+        }
 
-        var (results, resultCount) = await FetchAsync(request, cancellationToken);
-        var nextOffset = InlineQueryParser.GetNextOffset(request.Offset, resultCount);
-
-        await _client.AnswerInlineQuery(
+        _logger.LogDebug(
+            "Handling inline query {InlineQueryId}: type {QueryType}, payload {Payload}, offset {Offset}",
             inlineQuery.Id,
-            results.Select(_inlineQueryResultFactory.Provide),
-            nextOffset: InlineQueryParser.MapOffsetToString(nextOffset),
-            cancellationToken: cancellationToken);
+            request.QueryType,
+            request.Payload,
+            request.Offset);
+
+        try
+        {
+            var (results, resultCount) = await FetchAsync(request, cancellationToken);
+            var inlineResults = BuildResults(results);
+            var nextOffset = InlineQueryParser.GetNextOffset(request.Offset, resultCount);
+
+            _logger.LogDebug("Inline query {InlineQueryId} returned {Count} results", inlineQuery.Id, inlineResults.Count);
+
+            await TelegramApiRetry.ExecuteAsync(
+                requestToken => _client.AnswerInlineQuery(
+                    inlineQuery.Id,
+                    inlineResults,
+                    nextOffset: InlineQueryParser.MapOffsetToString(nextOffset),
+                    cancellationToken: requestToken),
+                _logger,
+                cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to handle inline query {InlineQueryId}", inlineQuery.Id);
+
+            try
+            {
+                await _client.AnswerInlineQuery(inlineQuery.Id, Array.Empty<InlineQueryResult>(), cancellationToken: cancellationToken);
+            }
+            catch (Exception answerException)
+            {
+                _logger.LogWarning(answerException, "Failed to answer failed inline query {InlineQueryId}", inlineQuery.Id);
+            }
+        }
+    }
+
+    private IReadOnlyList<InlineQueryResult> BuildResults(IReadOnlyList<Resource> resources)
+    {
+        var results = new List<InlineQueryResult>(resources.Count);
+
+        foreach (var resource in resources)
+        {
+            try
+            {
+                results.Add(_inlineQueryResultFactory.Provide(resource));
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(
+                    exception,
+                    "Skipping unsupported inline result {ResourceType} {ResourceId}",
+                    resource.ResourceType,
+                    resource.Id);
+            }
+        }
+
+        return results;
     }
 
     private async Task<(IReadOnlyList<Resource> Results, int Count)> FetchAsync(InlineQueryRequest request, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var store = _appSettings.AppleMusic.DefaultStore;
         var limit = InlineQueryParser.ResultLimit;
 
