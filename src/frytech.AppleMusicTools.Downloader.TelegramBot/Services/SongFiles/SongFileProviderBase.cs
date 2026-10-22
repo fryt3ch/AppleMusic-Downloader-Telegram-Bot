@@ -1,4 +1,5 @@
 using frytech.AppleMusic.API.Models.Resources;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Exceptions;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Catalog;
 

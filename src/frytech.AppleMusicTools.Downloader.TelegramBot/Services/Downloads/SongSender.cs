@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Exceptions;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Database;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Resources;

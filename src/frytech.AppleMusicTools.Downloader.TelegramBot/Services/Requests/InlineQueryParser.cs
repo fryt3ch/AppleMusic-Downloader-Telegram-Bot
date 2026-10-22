@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Requests;
 
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests;
 

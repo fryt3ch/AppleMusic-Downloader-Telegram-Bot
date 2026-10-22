@@ -1,4 +1,4 @@
-namespace frytech.AppleMusicTools.Downloader.TelegramBot.Models;
+namespace frytech.AppleMusicTools.Downloader.TelegramBot.Exceptions;
 
 public sealed class SongDownloadFailedException : Exception
 {
