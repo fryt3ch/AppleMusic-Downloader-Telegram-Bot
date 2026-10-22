@@ -8,9 +8,7 @@ public static class TelegramWebhookEndpointExtensions
 {
     private const string SecretTokenHeader = "X-Telegram-Bot-Api-Secret-Token";
 
-    public static IEndpointRouteBuilder MapTelegramWebhook(
-        this IEndpointRouteBuilder endpoints,
-        AppSettings.TelegramSection.WebhookSection webhook)
+    public static IEndpointRouteBuilder MapTelegramWebhook(this IEndpointRouteBuilder endpoints, AppSettings.TelegramSection.WebhookSection webhook)
     {
         endpoints.MapPost(webhook.Path, async (
             Update update,
@@ -22,10 +20,7 @@ public static class TelegramWebhookEndpointExtensions
             var logger = loggerFactory.CreateLogger("Telegram.Webhook");
 
             if (!string.IsNullOrEmpty(webhook.SecretToken) &&
-                !string.Equals(
-                    httpContext.Request.Headers[SecretTokenHeader].ToString(),
-                    webhook.SecretToken,
-                    StringComparison.Ordinal))
+                !string.Equals(httpContext.Request.Headers[SecretTokenHeader].ToString(), webhook.SecretToken, StringComparison.Ordinal))
             {
                 logger.LogWarning("Rejected Telegram webhook request with an invalid secret token");
 
@@ -38,9 +33,9 @@ public static class TelegramWebhookEndpointExtensions
             {
                 await updateHandler.HandleUpdateAsync(update, cancellationToken);
             }
-            catch (Exception exception)
+            catch (Exception уч)
             {
-                logger.LogError(exception, "Failed to handle Telegram update {UpdateId}", update.Id);
+                logger.LogError(уч, "Failed to handle Telegram update {UpdateId}", update.Id);
             }
 
             return Results.Ok();

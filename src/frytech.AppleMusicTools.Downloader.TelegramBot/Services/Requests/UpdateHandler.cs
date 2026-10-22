@@ -59,9 +59,9 @@ public sealed class UpdateHandler : IUpdateHandler
         {
             throw;
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            _logger.LogError(exception, "Failed to handle update {UpdateId}", update.Id);
+            _logger.LogError(ex, "Failed to handle update {UpdateId}", update.Id);
 
             throw;
         }

@@ -34,13 +34,9 @@ public abstract class SongFileProviderBase : ISongFileProvider
         {
             throw;
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            throw new SongDownloadFailedException(
-                songId,
-                song?.Attributes.Name ?? songId,
-                song?.Attributes.ArtistName ?? string.Empty,
-                exception);
+            throw new SongDownloadFailedException(songId, song?.Attributes.Name ?? songId, song?.Attributes.ArtistName ?? string.Empty, ex);
         }
     }
 

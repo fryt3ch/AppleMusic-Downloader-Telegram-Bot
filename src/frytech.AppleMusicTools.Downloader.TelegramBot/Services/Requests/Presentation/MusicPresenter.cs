@@ -92,13 +92,9 @@ public sealed class MusicPresenter
             {
                 await _client.DeleteMessage(chat.Id, contextMessage.MessageId, cancellationToken);
             }
-            catch (Exception exception)
+            catch (Exception ex)
             {
-                _logger.LogWarning(
-                    exception,
-                    "Failed to delete context message {MessageId} in chat {ChatId}",
-                    contextMessage.MessageId,
-                    chat.Id);
+                _logger.LogWarning(ex, "Failed to delete context message {MessageId} in chat {ChatId}", contextMessage.MessageId, chat.Id);
             }
         }
 
@@ -128,9 +124,9 @@ public sealed class MusicPresenter
         {
             throw;
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            _logger.LogWarning(exception, "Failed to send photo card in chat {ChatId}; falling back to text", chat.Id);
+            _logger.LogWarning(ex, "Failed to send photo card in chat {ChatId}; falling back to text", chat.Id);
 
             await SendTextCardAsync(chat, caption, replyMarkup, replyParameters, cancellationToken);
         }

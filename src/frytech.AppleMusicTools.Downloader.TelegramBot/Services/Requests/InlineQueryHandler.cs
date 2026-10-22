@@ -45,12 +45,7 @@ public sealed class InlineQueryHandler
             return;
         }
 
-        _logger.LogDebug(
-            "Handling inline query {InlineQueryId}: type {QueryType}, payload {Payload}, offset {Offset}",
-            inlineQuery.Id,
-            request.QueryType,
-            request.Payload,
-            request.Offset);
+        _logger.LogDebug("Handling inline query {InlineQueryId}: type {QueryType}, payload {Payload}, offset {Offset}", inlineQuery.Id, request.QueryType, request.Payload, request.Offset);
 
         try
         {
@@ -73,17 +68,17 @@ public sealed class InlineQueryHandler
         {
             throw;
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            _logger.LogError(exception, "Failed to handle inline query {InlineQueryId}", inlineQuery.Id);
+            _logger.LogError(ex, "Failed to handle inline query {InlineQueryId}", inlineQuery.Id);
 
             try
             {
                 await _client.AnswerInlineQuery(inlineQuery.Id, Array.Empty<InlineQueryResult>(), cancellationToken: cancellationToken);
             }
-            catch (Exception answerException)
+            catch (Exception answerEx)
             {
-                _logger.LogWarning(answerException, "Failed to answer failed inline query {InlineQueryId}", inlineQuery.Id);
+                _logger.LogWarning(answerEx, "Failed to answer failed inline query {InlineQueryId}", inlineQuery.Id);
             }
         }
     }
@@ -98,13 +93,9 @@ public sealed class InlineQueryHandler
             {
                 results.Add(_inlineQueryResultFactory.Provide(resource));
             }
-            catch (Exception exception)
+            catch (Exception ex)
             {
-                _logger.LogWarning(
-                    exception,
-                    "Skipping unsupported inline result {ResourceType} {ResourceId}",
-                    resource.ResourceType,
-                    resource.Id);
+                _logger.LogWarning(ex, "Skipping unsupported inline result {ResourceType} {ResourceId}", resource.ResourceType, resource.Id);
             }
         }
 

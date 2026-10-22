@@ -77,9 +77,9 @@ public sealed class DownloadProgressReporter
         {
             await _client.DeleteMessage(_chat.Id, messageId.Value, CancellationToken.None);
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            _logger.LogWarning(exception, "Failed to delete the download progress message in chat {ChatId}", _chat.Id);
+            _logger.LogWarning(ex, "Failed to delete the download progress message in chat {ChatId}", _chat.Id);
         }
     }
 
@@ -139,11 +139,11 @@ public sealed class DownloadProgressReporter
         {
             throw;
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
             _lastUpdateTimestamp = Stopwatch.GetTimestamp();
 
-            _logger.LogWarning(exception, "Failed to update the download progress message in chat {ChatId}", _chat.Id);
+            _logger.LogWarning(ex, "Failed to update the download progress message in chat {ChatId}", _chat.Id);
         }
     }
 }

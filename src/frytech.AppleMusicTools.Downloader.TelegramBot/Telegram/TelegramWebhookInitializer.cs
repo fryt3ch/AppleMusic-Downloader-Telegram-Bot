@@ -45,9 +45,9 @@ public sealed class TelegramWebhookInitializer : IHostedService
 
             _logger.LogInformation("Telegram webhook removed");
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            _logger.LogWarning(exception, "Failed to remove Telegram webhook");
+            _logger.LogWarning(ex, "Failed to remove Telegram webhook");
         }
     }
 
@@ -75,9 +75,9 @@ public sealed class TelegramWebhookInitializer : IHostedService
 
             _logger.LogInformation("Telegram webhook info: {WebhookInfo}", JsonSerializer.Serialize(webhookInfo));
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            _logger.LogError(exception, "Failed to configure Telegram webhook");
+            _logger.LogError(ex, "Failed to configure Telegram webhook");
         }
     }
 }

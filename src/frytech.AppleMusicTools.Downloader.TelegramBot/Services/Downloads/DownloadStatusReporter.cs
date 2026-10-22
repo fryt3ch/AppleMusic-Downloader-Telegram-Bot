@@ -37,9 +37,9 @@ public sealed class DownloadStatusReporter
         {
             throw;
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            _logger.LogWarning(exception, "Failed to send download status message for {DownloadId}", request.DownloadId);
+            _logger.LogWarning(ex, "Failed to send download status message for {DownloadId}", request.DownloadId);
             return null;
         }
     }
@@ -65,9 +65,9 @@ public sealed class DownloadStatusReporter
         {
             throw;
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            _logger.LogWarning(exception, "Failed to edit download status message for {DownloadId}", request.DownloadId);
+            _logger.LogWarning(ex, "Failed to edit download status message for {DownloadId}", request.DownloadId);
         }
     }
 
@@ -89,9 +89,9 @@ public sealed class DownloadStatusReporter
         {
             throw;
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            _logger.LogWarning(exception, "Failed to delete download status message for {DownloadId}", request.DownloadId);
+            _logger.LogWarning(ex, "Failed to delete download status message for {DownloadId}", request.DownloadId);
         }
     }
 }

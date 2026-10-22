@@ -38,9 +38,9 @@ public sealed class TelegramPollingBackgroundService : BackgroundService
 
                 await updateHandler.HandleUpdateAsync(update, cancellationToken);
             },
-            (_, exception, source, _) =>
+            (_, ex, source, _) =>
             {
-                _logger.LogError(exception, "Telegram polling error ({Source})", source);
+                _logger.LogError(ex, "Telegram polling error ({Source})", source);
 
                 return Task.CompletedTask;
             },

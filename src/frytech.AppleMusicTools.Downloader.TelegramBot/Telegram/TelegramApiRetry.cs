@@ -1,4 +1,3 @@
-using System.Net.Http;
 using Telegram.Bot.Exceptions;
 
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Telegram;
@@ -7,11 +6,7 @@ public static class TelegramApiRetry
 {
     private const int DefaultMaxAttempts = 3;
 
-    public static async Task<T> ExecuteAsync<T>(
-        Func<CancellationToken, Task<T>> action,
-        ILogger logger,
-        CancellationToken cancellationToken,
-        int maxAttempts = DefaultMaxAttempts)
+    public static async Task<T> ExecuteAsync<T>(Func<CancellationToken, Task<T>> action, ILogger logger, CancellationToken cancellationToken, int maxAttempts = DefaultMaxAttempts)
     {
         for (var attempt = 1; ; attempt++)
         {
@@ -23,17 +18,11 @@ public static class TelegramApiRetry
             {
                 throw;
             }
-            catch (ApiRequestException exception) when (attempt < maxAttempts && IsRetryable(exception))
+            catch (ApiRequestException ex) when (attempt < maxAttempts && IsRetryable(ex))
             {
-                var delay = GetDelay(exception, attempt);
+                var delay = GetDelay(ex, attempt);
 
-                logger.LogWarning(
-                    exception,
-                    "Telegram API error {ErrorCode}; retrying in {Delay} (attempt {Attempt}/{MaxAttempts})",
-                    exception.ErrorCode,
-                    delay,
-                    attempt,
-                    maxAttempts);
+                logger.LogWarning(ex, "Telegram API error {ErrorCode}; retrying in {Delay} (attempt {Attempt}/{MaxAttempts})", ex.ErrorCode, delay, attempt, maxAttempts);
 
                 await Task.Delay(delay, cancellationToken);
             }
@@ -41,12 +30,7 @@ public static class TelegramApiRetry
             {
                 var delay = GetDelay(attempt);
 
-                logger.LogWarning(
-                    exception,
-                    "Telegram transport error; retrying in {Delay} (attempt {Attempt}/{MaxAttempts})",
-                    delay,
-                    attempt,
-                    maxAttempts);
+                logger.LogWarning(exception, "Telegram transport error; retrying in {Delay} (attempt {Attempt}/{MaxAttempts})", delay, attempt, maxAttempts);
 
                 await Task.Delay(delay, cancellationToken);
             }
@@ -54,23 +38,14 @@ public static class TelegramApiRetry
             {
                 var delay = GetDelay(attempt);
 
-                logger.LogWarning(
-                    exception,
-                    "Telegram request timed out; retrying in {Delay} (attempt {Attempt}/{MaxAttempts})",
-                    delay,
-                    attempt,
-                    maxAttempts);
+                logger.LogWarning(exception, "Telegram request timed out; retrying in {Delay} (attempt {Attempt}/{MaxAttempts})", delay, attempt, maxAttempts);
 
                 await Task.Delay(delay, cancellationToken);
             }
         }
     }
 
-    public static Task ExecuteAsync(
-        Func<CancellationToken, Task> action,
-        ILogger logger,
-        CancellationToken cancellationToken,
-        int maxAttempts = DefaultMaxAttempts)
+    public static Task ExecuteAsync(Func<CancellationToken, Task> action, ILogger logger, CancellationToken cancellationToken, int maxAttempts = DefaultMaxAttempts)
     {
         return ExecuteAsync(
             async requestToken =>

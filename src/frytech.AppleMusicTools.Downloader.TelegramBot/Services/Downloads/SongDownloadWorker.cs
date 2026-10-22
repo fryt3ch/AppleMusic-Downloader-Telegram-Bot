@@ -133,9 +133,9 @@ public sealed class SongDownloadWorker : BackgroundService
 
             request.Status = DownloadStatus.Cancelled;
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            _logger.LogError(exception, "Failed to process download {DownloadId}", request.DownloadId);
+            _logger.LogError(ex, "Failed to process download {DownloadId}", request.DownloadId);
 
             request.Status = DownloadStatus.Failed;
 
@@ -148,9 +148,9 @@ public sealed class SongDownloadWorker : BackgroundService
                     TelegramMessages.DownloadFailed,
                     cancellationToken: CancellationToken.None);
             }
-            catch (Exception sendException)
+            catch (Exception sendEx)
             {
-                _logger.LogWarning(sendException, "Failed to report a download error for {DownloadId}", request.DownloadId);
+                _logger.LogWarning(sendEx, "Failed to report a download error for {DownloadId}", request.DownloadId);
             }
         }
         finally

@@ -104,17 +104,9 @@ public sealed class MessageHandler
             return;
         }
 
-        _logger.LogDebug(
-            "Parsed Apple Music URL {Url} as {ResourceType} {ResourceId}",
-            targetUrl,
-            reference.ResourceType,
-            reference.Id);
+        _logger.LogDebug("Parsed Apple Music URL {Url} as {ResourceType} {ResourceId}", targetUrl, reference.ResourceType, reference.Id);
 
-        _logger.LogInformation(
-            "Resolved Apple Music {ResourceType} {ResourceId} from URL in chat {ChatId}",
-            reference.ResourceType,
-            reference.Id,
-            message.Chat.Id);
+        _logger.LogInformation("Resolved Apple Music {ResourceType} {ResourceId} from URL in chat {ChatId}", reference.ResourceType, reference.Id, message.Chat.Id);
 
         var store = _appSettings.AppleMusic.DefaultStore;
 
@@ -154,9 +146,9 @@ public sealed class MessageHandler
         {
             throw;
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            _logger.LogError(exception, "Failed to handle Apple Music URL {Url} in chat {ChatId}", targetUrl, message.Chat.Id);
+            _logger.LogError(ex, "Failed to handle Apple Music URL {Url} in chat {ChatId}", targetUrl, message.Chat.Id);
 
             await _client.SendMessage(
                 message.Chat.Id,

@@ -26,9 +26,9 @@ public static class WebApplicationExtensions
 
             logger.LogInformation("Database migrations applied");
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            logger.LogCritical(exception, "Database migration failed");
+            logger.LogCritical(ex, "Database migration failed");
 
             throw;
         }

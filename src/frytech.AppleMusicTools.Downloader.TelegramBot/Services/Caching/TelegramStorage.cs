@@ -88,11 +88,7 @@ public sealed class TelegramStorage : ISongStorage
                 await _appDbContext.AddAsync(cachedSong, cancellationToken);
                 await _appDbContext.SaveChangesAsync(cancellationToken);
 
-                _logger.LogInformation(
-                    "Cached song {SongId} from provider {Provider} in store {Store}",
-                    song.Id,
-                    songFile.ProviderName,
-                    store);
+                _logger.LogInformation("Cached song {SongId} from provider {Provider} in store {Store}", song.Id, songFile.ProviderName, store);
 
                 return cachedSong;
             }
@@ -100,9 +96,9 @@ public sealed class TelegramStorage : ISongStorage
             {
                 throw;
             }
-            catch (Exception exception)
+            catch (Exception ex)
             {
-                _logger.LogError(exception, "Failed to cache song {SongId} in store {Store}", songId, store);
+                _logger.LogError(ex, "Failed to cache song {SongId} in store {Store}", songId, store);
 
                 throw;
             }

@@ -65,11 +65,7 @@ public sealed class CallbackQueryHandler
         var store = _appSettings.AppleMusic.DefaultStore;
         var replyParameters = new ReplyParameters { AllowSendingWithoutReply = true, MessageId = message.MessageId };
 
-        _logger.LogInformation(
-            "Handling callback {CallbackAction} for query {CallbackQueryId} in chat {ChatId}",
-            callbackData.GetType().Name,
-            callbackQuery.Id,
-            message.Chat.Id);
+        _logger.LogInformation("Handling callback {CallbackAction} for query {CallbackQueryId} in chat {ChatId}", callbackData.GetType().Name, callbackQuery.Id, message.Chat.Id);
 
         try
         {
@@ -106,9 +102,9 @@ public sealed class CallbackQueryHandler
         {
             throw;
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            _logger.LogError(exception, "Failed to handle callback {CallbackQueryId} with payload {Data}", callbackQuery.Id, data);
+            _logger.LogError(ex, "Failed to handle callback {CallbackQueryId} with payload {Data}", callbackQuery.Id, data);
 
             try
             {
@@ -118,9 +114,9 @@ public sealed class CallbackQueryHandler
                     replyParameters: replyParameters,
                     cancellationToken: cancellationToken);
             }
-            catch (Exception sendException)
+            catch (Exception sendEx)
             {
-                _logger.LogWarning(sendException, "Failed to report callback error to chat {ChatId}", message.Chat.Id);
+                _logger.LogWarning(sendEx, "Failed to report callback error to chat {ChatId}", message.Chat.Id);
             }
         }
     }
@@ -131,9 +127,9 @@ public sealed class CallbackQueryHandler
         {
             await _client.AnswerCallbackQuery(callbackQueryId, text: text, cancellationToken: cancellationToken);
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            _logger.LogWarning(exception, "Failed to answer callback query {CallbackQueryId}", callbackQueryId);
+            _logger.LogWarning(ex, "Failed to answer callback query {CallbackQueryId}", callbackQueryId);
         }
     }
 

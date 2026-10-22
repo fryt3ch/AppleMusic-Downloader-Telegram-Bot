@@ -140,11 +140,11 @@ public sealed class SongDownloadCoordinator
         {
             _queue.Enqueue(request);
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
             _queue.Abandon(request);
 
-            _logger.LogError(exception, "Failed to enqueue download {DownloadId}", downloadId);
+            _logger.LogError(ex, "Failed to enqueue download {DownloadId}", downloadId);
             throw;
         }
 
@@ -187,9 +187,9 @@ public sealed class SongDownloadCoordinator
         {
             throw;
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            _logger.LogWarning(exception, "Failed to send queue limit message to chat {ChatId}", chat.Id);
+            _logger.LogWarning(ex, "Failed to send queue limit message to chat {ChatId}", chat.Id);
         }
     }
 

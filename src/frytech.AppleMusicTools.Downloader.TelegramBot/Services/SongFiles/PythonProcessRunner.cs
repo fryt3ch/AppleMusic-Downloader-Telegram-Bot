@@ -19,10 +19,7 @@ public sealed class PythonProcessRunner
         _timeout = TimeSpan.FromSeconds(appSettings.Value.Downloader.ProcessTimeoutSeconds);
     }
 
-    public async Task<PythonProcessResult> RunAsync(
-        string scriptPath,
-        IReadOnlyCollection<string> arguments,
-        CancellationToken cancellationToken)
+    public async Task<PythonProcessResult> RunAsync(string scriptPath, IReadOnlyCollection<string> arguments, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -53,9 +50,9 @@ public sealed class PythonProcessRunner
         {
             process.Start();
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            throw new InvalidOperationException($"Failed to start Python bridge '{scriptPath}'.", exception);
+            throw new InvalidOperationException($"Failed to start Python bridge '{scriptPath}'.", ex);
         }
 
         using var registration = timeoutCts.Token.Register(() =>
@@ -68,14 +65,14 @@ public sealed class PythonProcessRunner
                 _logger.LogWarning("Killing Python bridge {Script} because it was cancelled or timed out", scriptPath);
                 process.Kill(entireProcessTree: true);
             }
-            catch (Exception exception)
+            catch (Exception ex)
             {
-                _logger.LogWarning(exception, "Failed to kill Python bridge {Script}", scriptPath);
+                _logger.LogWarning(ex, "Failed to kill Python bridge {Script}", scriptPath);
             }
         });
 
-        var standardOutputTask = process.StandardOutput.ReadToEndAsync();
-        var standardErrorTask = process.StandardError.ReadToEndAsync();
+        var standardOutputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        var standardErrorTask = process.StandardError.ReadToEndAsync(cancellationToken);
 
         try
         {
@@ -101,11 +98,7 @@ public sealed class PythonProcessRunner
         var standardOutput = await standardOutputTask;
         var standardError = await standardErrorTask;
 
-        _logger.LogDebug(
-            "Python bridge {Script} exited with code {ExitCode} in {Elapsed}",
-            scriptPath,
-            process.ExitCode,
-            Stopwatch.GetElapsedTime(startedAt));
+        _logger.LogDebug("Python bridge {Script} exited with code {ExitCode} in {Elapsed}", scriptPath, process.ExitCode, Stopwatch.GetElapsedTime(startedAt));
 
         return new PythonProcessResult(process.ExitCode, standardOutput, standardError);
     }

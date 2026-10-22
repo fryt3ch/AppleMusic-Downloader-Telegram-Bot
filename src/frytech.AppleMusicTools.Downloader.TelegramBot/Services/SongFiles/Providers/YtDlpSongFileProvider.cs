@@ -35,12 +35,7 @@ public sealed class YtDlpSongFileProvider : SongFileProviderBase
 
     protected override async Task<SongFile> GetSongFileAsync(Song song, CancellationToken cancellationToken)
     {
-        _logger.LogDebug(
-            "Downloading song {SongId} '{Artist} - {Title}' via {Provider}",
-            song.Id,
-            song.Attributes.ArtistName,
-            song.Attributes.Name,
-            ProviderName);
+        _logger.LogDebug("Downloading song {SongId} '{Artist} - {Title}' via {Provider}", song.Id, song.Attributes.ArtistName, song.Attributes.Name, ProviderName);
 
         var trackStream = await DownloadTrackAsStreamAsync(
             song.Attributes.ArtistName,

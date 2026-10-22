@@ -91,11 +91,11 @@ public class SongSender
                         pendingBatch.Clear();
                     }
                 }
-                catch (SongDownloadFailedException exception)
+                catch (SongDownloadFailedException ex)
                 {
-                    _logger.LogWarning(exception, "Skipping song {SongId} because it could not be downloaded.", songId);
+                    _logger.LogWarning(ex, "Skipping song {SongId} because it could not be downloaded.", songId);
 
-                    failedSongs.Add(exception);
+                    failedSongs.Add(ex);
                 }
 
                 await progress.ReportAsync(i + 1, songIdsArray.Length, sendToken);
@@ -162,9 +162,9 @@ public class SongSender
         {
             // Host is stopping; best-effort.
         }
-        catch (Exception exception)
+        catch (Exception ex)
         {
-            _logger.LogWarning(exception, "Failed to send partially downloaded songs in chat {ChatId}", chat.Id);
+            _logger.LogWarning(ex, "Failed to send partially downloaded songs in chat {ChatId}", chat.Id);
         }
     }
 
