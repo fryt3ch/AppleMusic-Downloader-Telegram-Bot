@@ -46,7 +46,7 @@ services:
         DOWNLOADS__MAX_PENDING_SONGS: "${DOWNLOADS__MAX_PENDING_SONGS:-2000}"
         DOWNLOADS__MAX_PENDING_BULK_PER_USER: "${DOWNLOADS__MAX_PENDING_BULK_PER_USER:-1}"
         DOWNLOADER__GAMDL__COOKIES_PATH: "${DOWNLOADER__GAMDL__COOKIES_PATH:-/app/data/cookies.txt}"
-        DOWNLOADER__YTDLP__COOKIES_PATH: "${DOWNLOADER__YTDLP__COOKIES_PATH:-}"
+        DOWNLOADER__YTDLP__COOKIES_PATH: "${DOWNLOADER__YTDLP__COOKIES_PATH:-/app/data/cookies.txt}"
       volumes:
         - "${BOT_DATA_PATH:-./data/bot}:/app/data/"
       restart: unless-stopped

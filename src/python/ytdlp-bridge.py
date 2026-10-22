@@ -1,3 +1,4 @@
+import io
 import os
 import re
 import sys
@@ -94,29 +95,34 @@ def main():
     output_stem = custom_output_path.stem
 
     cookies_path = sys.argv[5].strip() if len(sys.argv) > 5 else ""
-
-    base_opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "noplaylist": True,
-        "js_runtimes": {"deno": {}},
-        "extractor_args": {
-            "youtube": {
-                # Avoid TVHTML5 clients (tv/tv_simply/tv_downgraded): they use a JS
-                # variant yt-dlp-ejs cannot solve yet, causing "The page needs to be
-                # reloaded" / UNPLAYABLE. See yt-dlp issue #17389.
-                "player_client": ["default", "web_embedded"],
-            },
-        },
-    }
-
+    cookie_text = None
     if cookies_path and cookies_path != "-" and os.path.isfile(cookies_path):
-        base_opts["cookiefile"] = cookies_path
+        with open(cookies_path, encoding="utf-8") as cookies_file:
+            cookie_text = cookies_file.read()
+
+    def build_opts():
+        opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "noplaylist": True,
+            "js_runtimes": {"deno": {}},
+            "extractor_args": {
+                "youtube": {
+                    # Avoid TVHTML5 clients (tv/tv_simply/tv_downgraded): they use a JS
+                    # variant yt-dlp-ejs cannot solve yet, causing "The page needs to be
+                    # reloaded" / UNPLAYABLE. See yt-dlp issue #17389.
+                    "player_client": ["default", "web_embedded"],
+                },
+            },
+        }
+        if cookie_text is not None:
+            opts["cookiefile"] = io.StringIO(cookie_text)
+        return opts
 
     query = f"{artist} - {title}".strip()
 
     try:
-        with yt_dlp.YoutubeDL(dict(base_opts)) as ydl:
+        with yt_dlp.YoutubeDL(build_opts()) as ydl:
             search_result = ydl.extract_info(f"ytsearch{SEARCH_RESULT_LIMIT}:{query}", download=False)
     except Exception as e:
         print_error(e)
@@ -131,7 +137,7 @@ def main():
 
     video_url = best.get("webpage_url") or f"https://www.youtube.com/watch?v={best.get('id')}"
 
-    download_opts = dict(base_opts)
+    download_opts = build_opts()
     download_opts.update({
         "format": "bestaudio/best",
         "outtmpl": str(custom_output_path.with_suffix("")),
