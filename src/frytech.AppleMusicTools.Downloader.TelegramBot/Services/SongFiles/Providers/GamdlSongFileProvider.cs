@@ -20,8 +20,8 @@ public sealed class GamdlSongFileProvider : SongFileProviderBase
     private readonly AppSettings _appSettings;
     private readonly ILogger<GamdlSongFileProvider> _logger;
 
-    public GamdlSongFileProvider(IOptions<AppSettings> appSettings, MusicService musicService, ILogger<GamdlSongFileProvider> logger)
-        : base(musicService)
+    public GamdlSongFileProvider(IOptions<AppSettings> appSettings, AppleMusicCatalog catalog, ILogger<GamdlSongFileProvider> logger)
+        : base(catalog)
     {
         _logger = logger;
         _appSettings = appSettings.Value;
@@ -29,7 +29,7 @@ public sealed class GamdlSongFileProvider : SongFileProviderBase
     
     protected override async Task<SongFile> GetSongFileAsync(Song song, CancellationToken cancellationToken)
     {
-        var songUrl = MusicService.CreateMusicElementUrl(song.ResourceType, song.Id);
+        var songUrl = AppleMusicUrl.Create(song.ResourceType, song.Id, _appSettings.AppleMusic.DefaultStore);
         var trackStream = await DownloadTrackAsStreamAsync(songUrl.AbsoluteUri);
 
         var fileName = SongFileNameBuilder.BuildFileName(song);

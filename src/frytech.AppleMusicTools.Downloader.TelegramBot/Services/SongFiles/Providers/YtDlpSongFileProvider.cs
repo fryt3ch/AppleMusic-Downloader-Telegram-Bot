@@ -22,8 +22,8 @@ public sealed class YtDlpSongFileProvider : SongFileProviderBase
     private readonly AppSettings _appSettings;
     private readonly ILogger<YtDlpSongFileProvider> _logger;
 
-    public YtDlpSongFileProvider(IOptions<AppSettings> appSettings, MusicService musicService, ILogger<YtDlpSongFileProvider> logger)
-        : base(musicService)
+    public YtDlpSongFileProvider(IOptions<AppSettings> appSettings, AppleMusicCatalog catalog, ILogger<YtDlpSongFileProvider> logger)
+        : base(catalog)
     {
         _logger = logger;
         _appSettings = appSettings.Value;

@@ -13,7 +13,7 @@ namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests;
 public sealed class CallbackQueryHandler
 {
     private readonly ITelegramBotClient _client;
-    private readonly MusicService _musicService;
+    private readonly AppleMusicCatalog _catalog;
     private readonly MusicPresenter _musicPresenter;
     private readonly SongDownloadCoordinator _downloadCoordinator;
     private readonly AppSettings _appSettings;
@@ -21,14 +21,14 @@ public sealed class CallbackQueryHandler
 
     public CallbackQueryHandler(
         ITelegramBotClient client,
-        MusicService musicService,
+        AppleMusicCatalog catalog,
         MusicPresenter musicPresenter,
         SongDownloadCoordinator downloadCoordinator,
         IOptions<AppSettings> appSettings,
         ILogger<CallbackQueryHandler> logger)
     {
         _client = client;
-        _musicService = musicService;
+        _catalog = catalog;
         _musicPresenter = musicPresenter;
         _downloadCoordinator = downloadCoordinator;
         _appSettings = appSettings.Value;
@@ -86,14 +86,14 @@ public sealed class CallbackQueryHandler
 
     private async Task<IReadOnlyCollection<string>> GetAlbumSongIdsAsync(string albumId, string store)
     {
-        var tracks = await _musicService.GetAlbumTracksAsync(offset: 0, limit: 250, albumId, store);
+        var tracks = await _catalog.GetAlbumTracksAsync(offset: 0, limit: 250, albumId, store);
 
         return tracks.Where(resource => resource.ResourceType is ResourceType.Songs).Select(resource => resource.Id).ToArray();
     }
 
     private async Task<IReadOnlyCollection<string>> GetPlaylistSongIdsAsync(string playlistId, string store)
     {
-        var tracks = await _musicService.GetPlaylistTracksAsync(offset: 0, limit: 250, playlistId, store);
+        var tracks = await _catalog.GetPlaylistTracksAsync(offset: 0, limit: 250, playlistId, store);
 
         return tracks.Where(resource => resource.ResourceType is ResourceType.Songs).Select(resource => resource.Id).ToArray();
     }

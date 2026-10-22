@@ -12,12 +12,10 @@ namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests.Prese
 
 public class InlineQueryResultFactory
 {
-    private readonly MusicService _musicService;
     private readonly AppSettings _appSettings;
 
-    public InlineQueryResultFactory(MusicService musicService, IOptions<AppSettings> appSettings)
+    public InlineQueryResultFactory(IOptions<AppSettings> appSettings)
     {
-        _musicService = musicService;
         _appSettings = appSettings.Value;
     }
     
@@ -28,7 +26,7 @@ public class InlineQueryResultFactory
 
         var attributes = hasAttributesResource.Attributes;
 
-        var url = _musicService.CreateMusicElementUrl(resource.ResourceType, resource.Id, _appSettings.AppleMusic.DefaultStore);
+        var url = AppleMusicUrl.Create(resource.ResourceType, resource.Id, _appSettings.AppleMusic.DefaultStore);
         var urlStr = url.ToString();
         
         var inputMessageContent = new InputTextMessageContent($"{urlStr}");

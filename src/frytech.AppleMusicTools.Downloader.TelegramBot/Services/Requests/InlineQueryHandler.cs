@@ -12,18 +12,18 @@ namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests;
 public sealed class InlineQueryHandler
 {
     private readonly ITelegramBotClient _client;
-    private readonly MusicService _musicService;
+    private readonly AppleMusicCatalog _catalog;
     private readonly InlineQueryResultFactory _inlineQueryResultFactory;
     private readonly AppSettings _appSettings;
 
     public InlineQueryHandler(
         ITelegramBotClient client,
-        MusicService musicService,
+        AppleMusicCatalog catalog,
         InlineQueryResultFactory inlineQueryResultFactory,
         IOptions<AppSettings> appSettings)
     {
         _client = client;
-        _musicService = musicService;
+        _catalog = catalog;
         _inlineQueryResultFactory = inlineQueryResultFactory;
         _appSettings = appSettings.Value;
     }
@@ -54,11 +54,11 @@ public sealed class InlineQueryHandler
         {
             IEnumerable<Resource> resources = request.QueryType switch
             {
-                QueryType.ListAlbumSongs => await _musicService.GetAlbumTracksAsync(request.Offset, limit, request.Payload, store),
-                QueryType.ListPlaylistSongs => await _musicService.GetPlaylistTracksAsync(request.Offset, limit, request.Payload, store),
-                QueryType.ListAuthorSongs => await _musicService.GetAuthorTracksAsync(request.Offset, limit, request.Payload, store),
-                QueryType.ListAuthorAlbums => await _musicService.GetAuthorAlbumsAsync(request.Offset, limit, request.Payload, store),
-                QueryType.ListAuthorPlaylists => await _musicService.GetAuthorPlaylistsAsync(request.Offset, limit, request.Payload, store),
+                QueryType.ListAlbumSongs => await _catalog.GetAlbumTracksAsync(request.Offset, limit, request.Payload, store),
+                QueryType.ListPlaylistSongs => await _catalog.GetPlaylistTracksAsync(request.Offset, limit, request.Payload, store),
+                QueryType.ListAuthorSongs => await _catalog.GetAuthorTracksAsync(request.Offset, limit, request.Payload, store),
+                QueryType.ListAuthorAlbums => await _catalog.GetAuthorAlbumsAsync(request.Offset, limit, request.Payload, store),
+                QueryType.ListAuthorPlaylists => await _catalog.GetAuthorPlaylistsAsync(request.Offset, limit, request.Payload, store),
 
                 _ => throw new InvalidOperationException($"Unsupported list query type: {request.QueryType}."),
             };
@@ -69,7 +69,7 @@ public sealed class InlineQueryHandler
         }
 
         var searchMode = ToSearchMode(request.QueryType);
-        var searchResults = (await _musicService.SearchAsync(request.Payload, request.Offset, limit, searchMode, store)).ToArray();
+        var searchResults = (await _catalog.SearchAsync(request.Payload, request.Offset, limit, searchMode, store)).ToArray();
 
         return (searchResults, searchResults.Length);
     }

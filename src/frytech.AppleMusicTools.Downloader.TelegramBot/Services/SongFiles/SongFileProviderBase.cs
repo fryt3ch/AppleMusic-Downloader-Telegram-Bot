@@ -6,12 +6,12 @@ namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.SongFiles;
 
 public abstract class SongFileProviderBase : ISongFileProvider
 {
-    protected SongFileProviderBase(MusicService musicService)
+    protected SongFileProviderBase(AppleMusicCatalog catalog)
     {
-        MusicService = musicService;
+        Catalog = catalog;
     }
 
-    protected MusicService MusicService { get; }
+    protected AppleMusicCatalog Catalog { get; }
 
     public abstract string ProviderName { get; }
 
@@ -21,7 +21,7 @@ public abstract class SongFileProviderBase : ISongFileProvider
 
         try
         {
-            song = await MusicService.GetSongAsync(songId, store);
+            song = await Catalog.GetSongAsync(songId, store);
 
             return await GetSongFileAsync(song, cancellationToken);
         }

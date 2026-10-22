@@ -15,20 +15,17 @@ namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests;
 public sealed class MessageHandler
 {
     private readonly ITelegramBotClient _client;
-    private readonly MusicService _musicService;
     private readonly MusicPresenter _musicPresenter;
     private readonly SongDownloadCoordinator _downloadCoordinator;
     private readonly AppSettings _appSettings;
 
     public MessageHandler(
         ITelegramBotClient client,
-        MusicService musicService,
         MusicPresenter musicPresenter,
         SongDownloadCoordinator downloadCoordinator,
         IOptions<AppSettings> appSettings)
     {
         _client = client;
-        _musicService = musicService;
         _musicPresenter = musicPresenter;
         _downloadCoordinator = downloadCoordinator;
         _appSettings = appSettings.Value;
@@ -81,7 +78,7 @@ public sealed class MessageHandler
             return;
         }
 
-        if (!_musicService.TryGetMusicElementInfo(targetUrl, out _, out var resourceType, out var musicElementId))
+        if (!AppleMusicUrl.TryParse(targetUrl, out var reference) || reference is null)
         {
             await _client.SendMessage(
                 message.Chat.Id,
@@ -94,25 +91,25 @@ public sealed class MessageHandler
 
         var store = _appSettings.AppleMusic.DefaultStore;
 
-        switch (resourceType)
+        switch (reference.ResourceType)
         {
             case ResourceType.Songs:
                 if (message.From is null)
                     throw new InvalidOperationException("Anonymous downloads are not allowed.");
 
-                await _downloadCoordinator.StartSingleAsync(message.Chat, [musicElementId], store, replyParameters);
+                await _downloadCoordinator.StartSingleAsync(message.Chat, [reference.Id], store, replyParameters);
                 break;
 
             case ResourceType.Albums:
-                await _musicPresenter.ShowAlbumAsync(musicElementId, store, message.Chat, contextMessage: null, replyParameters, cancellationToken);
+                await _musicPresenter.ShowAlbumAsync(reference.Id, store, message.Chat, contextMessage: null, replyParameters, cancellationToken);
                 break;
 
             case ResourceType.Artists:
-                await _musicPresenter.ShowArtistAsync(musicElementId, store, message.Chat, contextMessage: null, replyParameters, cancellationToken);
+                await _musicPresenter.ShowArtistAsync(reference.Id, store, message.Chat, contextMessage: null, replyParameters, cancellationToken);
                 break;
 
             case ResourceType.Playlists:
-                await _musicPresenter.ShowPlaylistAsync(musicElementId, store, message.Chat, contextMessage: null, replyParameters, cancellationToken);
+                await _musicPresenter.ShowPlaylistAsync(reference.Id, store, message.Chat, contextMessage: null, replyParameters, cancellationToken);
                 break;
 
             default:

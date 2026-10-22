@@ -12,19 +12,19 @@ namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests.Prese
 public sealed class MusicPresenter
 {
     private readonly ITelegramBotClient _client;
-    private readonly MusicService _musicService;
+    private readonly AppleMusicCatalog _catalog;
     private readonly AppSettings _appSettings;
 
-    public MusicPresenter(ITelegramBotClient client, MusicService musicService, IOptions<AppSettings> appSettings)
+    public MusicPresenter(ITelegramBotClient client, AppleMusicCatalog catalog, IOptions<AppSettings> appSettings)
     {
         _client = client;
-        _musicService = musicService;
+        _catalog = catalog;
         _appSettings = appSettings.Value;
     }
 
     public async Task ShowArtistAsync(string artistId, string store, Chat chat, Message? contextMessage, ReplyParameters? replyParameters, CancellationToken cancellationToken)
     {
-        var artist = await _musicService.GetArtistAsync(artistId, store);
+        var artist = await _catalog.GetArtistAsync(artistId, store);
 
         var caption = artist.Attributes.Name;
         var replyMarkup = new InlineKeyboardMarkup()
@@ -39,7 +39,7 @@ public sealed class MusicPresenter
 
     public async Task ShowAlbumAsync(string albumId, string store, Chat chat, Message? contextMessage, ReplyParameters? replyParameters, CancellationToken cancellationToken)
     {
-        var album = await _musicService.GetAlbumAsync(albumId, store);
+        var album = await _catalog.GetAlbumAsync(albumId, store);
 
         var caption = $"{album.Attributes.ArtistName} - {album.Attributes.Name}\n\n{album.Attributes.TrackCount} tracks\n{album.Attributes.ReleaseDate:yyyy.MM.dd}";
         var replyMarkup = new InlineKeyboardMarkup()
@@ -57,7 +57,7 @@ public sealed class MusicPresenter
 
     public async Task ShowPlaylistAsync(string playlistId, string store, Chat chat, Message? contextMessage, ReplyParameters? replyParameters, CancellationToken cancellationToken)
     {
-        var playlist = await _musicService.GetPlaylistAsync(playlistId, store);
+        var playlist = await _catalog.GetPlaylistAsync(playlistId, store);
 
         var caption = $"{playlist.Attributes.Name}\n\nCurator: {playlist.Attributes.CuratorName}";
         var replyMarkup = new InlineKeyboardMarkup()

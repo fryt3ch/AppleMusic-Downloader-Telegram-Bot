@@ -56,7 +56,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
         services
-            .AddScoped<MusicService>()
+            .AddScoped<AppleMusicCatalog>()
             .AddScoped<ISongStorage, TelegramStorage>()
             .AddSongFileProviders()
             .AddDownloads()
