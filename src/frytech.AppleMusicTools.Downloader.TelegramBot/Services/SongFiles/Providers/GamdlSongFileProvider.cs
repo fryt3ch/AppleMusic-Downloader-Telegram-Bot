@@ -8,33 +8,32 @@ using Microsoft.Extensions.Options;
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.SongFiles.Providers;
 
 [SongFileProvider(Name)]
-public sealed class GamdlSongFileProvider : ISongFileProvider
+public sealed class GamdlSongFileProvider : SongFileProviderBase
 {
     public const string Name = "gamdl";
 
     private const string PythonExecutable = "python3";
     private const string BridgeScriptPath = "/app/gamdl-bridge.py";
     
-    public string ProviderName => Name;
+    public override string ProviderName => Name;
     
     private readonly AppSettings _appSettings;
-    private readonly MusicService _musicService;
     private readonly ILogger<GamdlSongFileProvider> _logger;
 
     public GamdlSongFileProvider(IOptions<AppSettings> appSettings, MusicService musicService, ILogger<GamdlSongFileProvider> logger)
+        : base(musicService)
     {
-        _musicService = musicService;
         _logger = logger;
         _appSettings = appSettings.Value;
     }
     
-    public async Task<SongFile> GetSongFileAsync(Song song)
+    protected override async Task<SongFile> GetSongFileAsync(Song song, CancellationToken cancellationToken)
     {
-        var songUrl = _musicService.CreateMusicElementUrl(song.ResourceType, song.Id);
+        var songUrl = MusicService.CreateMusicElementUrl(song.ResourceType, song.Id);
         var trackStream = await DownloadTrackAsStreamAsync(songUrl.AbsoluteUri);
 
         var fileName = SongFileNameBuilder.BuildFileName(song);
-        var songFile = new SongFile(song, fileName, trackStream);
+        var songFile = new SongFile(song, fileName, trackStream, ProviderName);
 
         return songFile;
     }

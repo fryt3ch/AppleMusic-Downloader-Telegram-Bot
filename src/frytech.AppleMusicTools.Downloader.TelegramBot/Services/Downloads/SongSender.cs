@@ -4,6 +4,7 @@ using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Database;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Resources;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Caching;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.SongFiles;
 using KeyedSemaphores;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
@@ -16,18 +17,21 @@ public class SongSender
     private const int MEDIA_BATCH_SIZE = 10;
     
     private readonly ITelegramBotClient _client;
-    private readonly ISongCacher _songCacher;
+    private readonly ISongStorage _songStorage;
+    private readonly ISongFileProvider _songFileProvider;
     private readonly ILogger<SongSender> _logger;
     private readonly TimeSpan _progressUpdateInterval;
 
     public SongSender(
         ITelegramBotClient client,
-        ISongCacher songCacher,
+        ISongStorage songStorage,
+        ISongFileProvider songFileProvider,
         IOptions<AppSettings> appSettings,
         ILogger<SongSender> logger)
     {
         _client = client;
-        _songCacher = songCacher;
+        _songStorage = songStorage;
+        _songFileProvider = songFileProvider;
         _logger = logger;
         _progressUpdateInterval = TimeSpan.FromSeconds(appSettings.Value.Telegram.ProgressUpdateIntervalSeconds);
     }
@@ -55,7 +59,11 @@ public class SongSender
                 {
                     try
                     {
-                        var cachedSong = await _songCacher.GetOrAddSong(songId, store, cancellationToken);
+                        var cachedSong = await _songStorage.GetOrAddSong(
+                            songId,
+                            store,
+                            ct => _songFileProvider.GetSongFileAsync(songId, store, ct),
+                            cancellationToken);
 
                         cachedSongs.Add(cachedSong);
                     }

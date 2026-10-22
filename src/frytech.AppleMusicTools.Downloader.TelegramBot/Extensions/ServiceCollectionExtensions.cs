@@ -57,7 +57,7 @@ public static class ServiceCollectionExtensions
     {
         services
             .AddScoped<MusicService>()
-            .AddScoped<ISongCacher, TelegramStorage>()
+            .AddScoped<ISongStorage, TelegramStorage>()
             .AddSongFileProviders()
             .AddDownloads()
             .AddRequests();

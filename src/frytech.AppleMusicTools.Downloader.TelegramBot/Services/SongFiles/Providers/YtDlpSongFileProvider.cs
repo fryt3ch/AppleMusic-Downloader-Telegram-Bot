@@ -3,12 +3,13 @@ using System.Globalization;
 using frytech.AppleMusic.API.Models.Resources;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Catalog;
 using Microsoft.Extensions.Options;
 
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.SongFiles.Providers;
 
 [SongFileProvider(Name)]
-public sealed class YtDlpSongFileProvider : ISongFileProvider
+public sealed class YtDlpSongFileProvider : SongFileProviderBase
 {
     public const string Name = "ytdlp";
 
@@ -16,18 +17,19 @@ public sealed class YtDlpSongFileProvider : ISongFileProvider
     private const string BridgeScriptPath = "/app/ytdlp-bridge.py";
     private const string OutputExtension = ".m4a";
     
-    public string ProviderName => Name;
+    public override string ProviderName => Name;
 
     private readonly AppSettings _appSettings;
     private readonly ILogger<YtDlpSongFileProvider> _logger;
 
-    public YtDlpSongFileProvider(IOptions<AppSettings> appSettings, ILogger<YtDlpSongFileProvider> logger)
+    public YtDlpSongFileProvider(IOptions<AppSettings> appSettings, MusicService musicService, ILogger<YtDlpSongFileProvider> logger)
+        : base(musicService)
     {
         _logger = logger;
         _appSettings = appSettings.Value;
     }
     
-    public async Task<SongFile> GetSongFileAsync(Song song)
+    protected override async Task<SongFile> GetSongFileAsync(Song song, CancellationToken cancellationToken)
     {
         var trackStream = await DownloadTrackAsStreamAsync(
             song.Attributes.ArtistName,
@@ -35,7 +37,7 @@ public sealed class YtDlpSongFileProvider : ISongFileProvider
             song.Attributes.Duration.TotalSeconds);
 
         var fileName = SongFileNameBuilder.BuildFileName(song, OutputExtension);
-        var songFile = new SongFile(song, fileName, trackStream);
+        var songFile = new SongFile(song, fileName, trackStream, ProviderName);
 
         return songFile;
     }
