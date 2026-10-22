@@ -1,6 +1,5 @@
 using frytech.AppleMusic.API.Extensions;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
-using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Requests;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Catalog;
 using Microsoft.Extensions.Options;

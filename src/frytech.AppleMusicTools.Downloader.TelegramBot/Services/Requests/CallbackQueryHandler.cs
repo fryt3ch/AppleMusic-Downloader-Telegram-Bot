@@ -1,6 +1,5 @@
 using frytech.AppleMusic.API.Models.Enums;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
-using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Requests;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Catalog;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Downloads;

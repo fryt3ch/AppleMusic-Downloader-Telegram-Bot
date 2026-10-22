@@ -6,7 +6,7 @@ using Telegram.Bot.Types;
 
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Downloads;
 
-internal sealed class DownloadProgressReporter
+public sealed class DownloadProgressReporter
 {
     private readonly ITelegramBotClient _client;
     private readonly Chat _chat;

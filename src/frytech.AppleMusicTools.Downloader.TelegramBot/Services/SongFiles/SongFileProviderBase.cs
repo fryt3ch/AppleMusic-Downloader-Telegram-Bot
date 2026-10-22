@@ -12,9 +12,9 @@ public abstract class SongFileProviderBase : ISongFileProvider
         Catalog = catalog;
     }
 
-    protected AppleMusicCatalog Catalog { get; }
-
     public abstract string ProviderName { get; }
+    
+    protected AppleMusicCatalog Catalog { get; }
 
     public async Task<SongFile> GetSongFileAsync(string songId, string store, CancellationToken cancellationToken)
     {

@@ -58,9 +58,11 @@ public sealed class TelegramWebhookInitializer : IHostedService
         try
         {
             _logger.LogInformation("Removing Telegram webhook");
+            
             await _client.DeleteWebhook(cancellationToken: CancellationToken.None);
 
             _logger.LogInformation("Setting Telegram webhook to {Url}", webhook.Url);
+            
             await _client.SetWebhook(
                 webhook.Url!.ToString(),
                 maxConnections: webhook.MaxConnections,

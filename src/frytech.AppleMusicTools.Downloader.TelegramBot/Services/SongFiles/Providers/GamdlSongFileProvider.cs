@@ -15,8 +15,6 @@ public sealed class GamdlSongFileProvider : SongFileProviderBase
     private const string PythonExecutable = "python3";
     private const string BridgeScriptPath = "/app/gamdl-bridge.py";
     
-    public override string ProviderName => Name;
-    
     private readonly AppSettings _appSettings;
     private readonly ILogger<GamdlSongFileProvider> _logger;
 
@@ -26,6 +24,8 @@ public sealed class GamdlSongFileProvider : SongFileProviderBase
         _logger = logger;
         _appSettings = appSettings.Value;
     }
+    
+    public override string ProviderName => Name;
     
     protected override async Task<SongFile> GetSongFileAsync(Song song, CancellationToken cancellationToken)
     {
