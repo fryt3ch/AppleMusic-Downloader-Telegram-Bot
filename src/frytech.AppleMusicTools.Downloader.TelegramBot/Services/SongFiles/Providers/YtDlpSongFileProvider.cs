@@ -82,8 +82,7 @@ public sealed class YtDlpSongFileProvider : SongFileProviderBase
             if (result.StandardOutput.Contains("NOT_FOUND"))
                 throw new InvalidOperationException($"yt-dlp could not find a matching track for '{artist} - {title}'.");
 
-            throw new InvalidOperationException(
-                $"yt-dlp bridge failed.\nExitCode: {result.ExitCode}\nOutput: {result.StandardOutput}\nError: {result.StandardError}");
+            throw new InvalidOperationException($"yt-dlp bridge failed.\nExitCode: {result.ExitCode}\nOutput: {result.StandardOutput}\nError: {result.StandardError}");
         }
 
         if (!File.Exists(fullOutputPath))

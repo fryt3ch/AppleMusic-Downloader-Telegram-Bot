@@ -51,8 +51,10 @@
 - **Pluggable File Providers** — download audio via Apple Music (`gamdl`) or for free via YouTube (`yt-dlp`), while search, metadata, and cache IDs always stay on Apple Music
 - **Webhook & Polling** — supports both webhook mode (for production) and long-polling (for development)
 - **Local Bot API** — optional profile for running a local Telegram Bot API server to bypass file size limits
-- **Rate Limiting** — one concurrent download per user prevents overload
+- **Rate Limiting** — one concurrent bulk download per user prevents overload
 - **Auto-Migration** — EF Core migrations run automatically on startup
+
+> **Single instance:** cache-miss downloads are coordinated with an in-process keyed lock per `(store, songId)`. Run a single bot instance (the provided compose setup does); horizontal scaling would require a distributed lock or a database claim.
 
 ## Architecture
 

@@ -6,7 +6,6 @@ using frytech.AppleMusicTools.Downloader.TelegramBot.Resources;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Caching;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.SongFiles;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Telegram;
-using KeyedSemaphores;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
@@ -60,24 +59,21 @@ public class SongSender
 
                 _logger.LogDebug("Processing song {SongId}", songId);
 
-                using (await KeyedSemaphore.LockAsync(songId, cancellationToken))
+                try
                 {
-                    try
-                    {
-                        var cachedSong = await _songStorage.GetOrAddSong(
-                            songId,
-                            store,
-                            ct => _songFileProvider.GetSongFileAsync(songId, store, ct),
-                            cancellationToken);
+                    var cachedSong = await _songStorage.GetOrAddSong(
+                        songId,
+                        store,
+                        ct => _songFileProvider.GetSongFileAsync(songId, store, ct),
+                        cancellationToken);
 
-                        cachedSongs.Add(cachedSong);
-                    }
-                    catch (SongDownloadFailedException exception)
-                    {
-                        _logger.LogWarning(exception, "Skipping song {SongId} because it could not be downloaded.", songId);
+                    cachedSongs.Add(cachedSong);
+                }
+                catch (SongDownloadFailedException exception)
+                {
+                    _logger.LogWarning(exception, "Skipping song {SongId} because it could not be downloaded.", songId);
 
-                        failedSongs.Add(exception);
-                    }
+                    failedSongs.Add(exception);
                 }
 
                 await progress.ReportAsync(i + 1, songIdsArray.Length, cancellationToken);

@@ -68,8 +68,7 @@ public sealed class GamdlSongFileProvider : SongFileProviderBase
             if (File.Exists(fullOutputPath))
                 File.Delete(fullOutputPath);
 
-            throw new InvalidOperationException(
-                $"gamdl bridge failed.\nExitCode: {result.ExitCode}\nOutput: {result.StandardOutput}\nError: {result.StandardError}");
+            throw new InvalidOperationException($"gamdl bridge failed.\nExitCode: {result.ExitCode}\nOutput: {result.StandardOutput}\nError: {result.StandardError}");
         }
 
         _logger.LogDebug("gamdl bridge produced {OutputPath}", fullOutputPath);
