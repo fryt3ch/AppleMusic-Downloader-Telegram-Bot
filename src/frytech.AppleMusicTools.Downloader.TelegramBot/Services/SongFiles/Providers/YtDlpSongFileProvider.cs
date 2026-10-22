@@ -24,9 +24,10 @@ public sealed class YtDlpSongFileProvider : SongFileProviderBase
     public YtDlpSongFileProvider(
         IOptions<AppSettings> appSettings,
         AppleMusicCatalog catalog,
+        SongFileProviderLimiter limiter,
         PythonProcessRunner runner,
         ILogger<YtDlpSongFileProvider> logger)
-        : base(catalog)
+        : base(catalog, limiter)
     {
         _appSettings = appSettings.Value;
         _runner = runner;

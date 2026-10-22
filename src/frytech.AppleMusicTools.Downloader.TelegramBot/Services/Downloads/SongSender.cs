@@ -16,25 +16,25 @@ namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Downloads;
 public class SongSender
 {
     private const int MEDIA_BATCH_SIZE = 10;
-    
+
     private readonly ITelegramBotClient _client;
-    private readonly ISongStorage _songStorage;
-    private readonly ISongFileProvider _songFileProvider;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<SongSender> _logger;
     private readonly TimeSpan _progressUpdateInterval;
+    private readonly int _providerConcurrency;
+    private readonly SemaphoreSlim _progressGate = new(1, 1);
 
     public SongSender(
         ITelegramBotClient client,
-        ISongStorage songStorage,
-        ISongFileProvider songFileProvider,
+        IServiceScopeFactory scopeFactory,
         IOptions<AppSettings> appSettings,
         ILogger<SongSender> logger)
     {
         _client = client;
-        _songStorage = songStorage;
-        _songFileProvider = songFileProvider;
+        _scopeFactory = scopeFactory;
         _logger = logger;
         _progressUpdateInterval = TimeSpan.FromSeconds(appSettings.Value.Telegram.ProgressUpdateIntervalSeconds);
+        _providerConcurrency = Math.Max(1, appSettings.Value.Downloader.MaxConcurrency);
     }
 
     public async Task SendSongs(
@@ -69,40 +69,90 @@ public class SongSender
         {
             await progress.StartAsync(songIdsArray.Length, failed: 0, sendToken);
 
-            for (var i = 0; i < songIdsArray.Length; i++)
-            {
-                var songId = songIdsArray[i];
+            var processed = 0;
+            var failedCount = 0;
 
-                _logger.LogDebug("Processing song {SongId}", songId);
+            async Task ReportProgressAsync(int total, CancellationToken cancellationToken)
+            {
+                await _progressGate.WaitAsync(cancellationToken);
 
                 try
                 {
-                    var cachedSong = await _songStorage.GetOrAddSong(
-                        songId,
-                        store,
-                        ct => _songFileProvider.GetSongFileAsync(songId, store, ct),
-                        downloadToken);
-
-                    pendingBatch.Add(cachedSong);
-
-                    if (pendingBatch.Count >= MEDIA_BATCH_SIZE)
-                    {
-                        await SendBatchAsync(chat, pendingBatch, replyParameters, sendToken);
-                        pendingBatch.Clear();
-                    }
+                    await progress.ReportAsync(Volatile.Read(ref processed), total, Volatile.Read(ref failedCount), cancellationToken);
                 }
-                catch (SongDownloadFailedException ex)
+                finally
                 {
-                    _logger.LogWarning(ex, "Skipping song {SongId} because it could not be downloaded.", songId);
-
-                    failedSongs.Add(ex);
+                    _progressGate.Release();
                 }
-
-                await progress.ReportAsync(i + 1, songIdsArray.Length, failedSongs.Count, sendToken);
             }
 
-            await SendBatchAsync(chat, pendingBatch, replyParameters, sendToken);
-            pendingBatch.Clear();
+            for (var offset = 0; offset < songIdsArray.Length; offset += MEDIA_BATCH_SIZE)
+            {
+                var chunkLength = Math.Min(MEDIA_BATCH_SIZE, songIdsArray.Length - offset);
+                var chunk = new string[chunkLength];
+
+                Array.Copy(songIdsArray, offset, chunk, 0, chunkLength);
+
+                var cachedResults = new CachedSong?[chunkLength];
+                var failures = new SongDownloadFailedException?[chunkLength];
+
+                try
+                {
+                    await Parallel.ForEachAsync(
+                        Enumerable.Range(0, chunkLength),
+                        new ParallelOptions
+                        {
+                            MaxDegreeOfParallelism = _providerConcurrency,
+                            CancellationToken = downloadToken,
+                        },
+                        async (index, cancellationToken) =>
+                        {
+                            var songId = chunk[index];
+
+                            _logger.LogDebug("Processing song {SongId}", songId);
+
+                            try
+                            {
+                                cachedResults[index] = await DownloadAndCacheAsync(songId, store, cancellationToken);
+                            }
+                            catch (SongDownloadFailedException ex)
+                            {
+                                _logger.LogWarning(ex, "Skipping song {SongId} because it could not be downloaded.", songId);
+
+                                failures[index] = ex;
+                            }
+
+                            Interlocked.Increment(ref processed);
+
+                            if (failures[index] is not null)
+                                Interlocked.Increment(ref failedCount);
+
+                            await ReportProgressAsync(songIdsArray.Length, sendToken);
+                        });
+                }
+                catch (OperationCanceledException)
+                {
+                    for (var i = 0; i < cachedResults.Length; i++)
+                    {
+                        if (cachedResults[i] is { } cachedSong)
+                            pendingBatch.Add(cachedSong);
+                    }
+
+                    throw;
+                }
+
+                for (var i = 0; i < cachedResults.Length; i++)
+                {
+                    if (cachedResults[i] is { } cachedSong)
+                        pendingBatch.Add(cachedSong);
+
+                    if (failures[i] is { } failure)
+                        failedSongs.Add(failure);
+                }
+
+                await SendBatchAsync(chat, pendingBatch, replyParameters, sendToken);
+                pendingBatch.Clear();
+            }
 
             await progress.CompleteAsync(deleteMessage: true);
 
@@ -138,6 +188,16 @@ public class SongSender
 
             throw;
         }
+    }
+
+    private async Task<CachedSong> DownloadAndCacheAsync(string songId, string store, CancellationToken cancellationToken)
+    {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+
+        var songStorage = scope.ServiceProvider.GetRequiredService<ISongStorage>();
+        var songFileProvider = scope.ServiceProvider.GetRequiredService<ISongFileProvider>();
+
+        return await songStorage.GetOrAddSong(songId, store, ct => songFileProvider.GetSongFileAsync(songId, store, ct), cancellationToken);
     }
 
     private async Task SendBatchAsync(Chat chat, IReadOnlyCollection<CachedSong> batch, ReplyParameters? replyParameters, CancellationToken sendToken)

@@ -34,6 +34,8 @@ public static class ServiceCollectionExtensions
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlite(configuration.GetConnectionString("App")));
 
+        services.AddSingleton<CachedSongDbLock>();
+
         return services;
     }
 

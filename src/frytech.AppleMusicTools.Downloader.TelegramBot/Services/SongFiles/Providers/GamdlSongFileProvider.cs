@@ -22,9 +22,10 @@ public sealed class GamdlSongFileProvider : SongFileProviderBase
     public GamdlSongFileProvider(
         IOptions<AppSettings> appSettings,
         AppleMusicCatalog catalog,
+        SongFileProviderLimiter limiter,
         PythonProcessRunner runner,
         ILogger<GamdlSongFileProvider> logger)
-        : base(catalog)
+        : base(catalog, limiter)
     {
         _appSettings = appSettings.Value;
         _runner = runner;

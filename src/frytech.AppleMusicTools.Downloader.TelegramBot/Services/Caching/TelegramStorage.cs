@@ -13,6 +13,7 @@ public sealed class TelegramStorage : ISongStorage
 {
     private readonly ITelegramBotClient _client;
     private readonly AppDbContext _appDbContext;
+    private readonly CachedSongDbLock _dbLock;
     private readonly ChatId _storageChatId;
     private readonly ILogger<TelegramStorage> _logger;
 
@@ -20,10 +21,12 @@ public sealed class TelegramStorage : ISongStorage
         ITelegramBotClient client,
         IOptions<AppSettings> appSettings,
         AppDbContext appDbContext,
+        CachedSongDbLock dbLock,
         ILogger<TelegramStorage> logger)
     {
         _client = client;
         _appDbContext = appDbContext;
+        _dbLock = dbLock;
         _logger = logger;
 
         _storageChatId = new ChatId(appSettings.Value.Telegram.StorageChatId);
@@ -37,7 +40,18 @@ public sealed class TelegramStorage : ISongStorage
     {
         using (await KeyedSemaphore.LockAsync($"{store}:{songId}", cancellationToken))
         {
-            var cachedSong = await _appDbContext.CachedSongs.FindAsync([songId, store], cancellationToken);
+            CachedSong? cachedSong;
+
+            await _dbLock.Semaphore.WaitAsync(cancellationToken);
+
+            try
+            {
+                cachedSong = await _appDbContext.CachedSongs.FindAsync([songId, store], cancellationToken);
+            }
+            finally
+            {
+                _dbLock.Semaphore.Release();
+            }
 
             if (cachedSong is not null)
             {
@@ -85,8 +99,17 @@ public sealed class TelegramStorage : ISongStorage
                     Provider = songFile.ProviderName,
                 };
 
-                await _appDbContext.AddAsync(cachedSong, cancellationToken);
-                await _appDbContext.SaveChangesAsync(cancellationToken);
+                await _dbLock.Semaphore.WaitAsync(cancellationToken);
+
+                try
+                {
+                    await _appDbContext.AddAsync(cachedSong, cancellationToken);
+                    await _appDbContext.SaveChangesAsync(cancellationToken);
+                }
+                finally
+                {
+                    _dbLock.Semaphore.Release();
+                }
 
                 _logger.LogInformation("Cached song {SongId} from provider {Provider} in store {Store}", song.Id, songFile.ProviderName, store);
 

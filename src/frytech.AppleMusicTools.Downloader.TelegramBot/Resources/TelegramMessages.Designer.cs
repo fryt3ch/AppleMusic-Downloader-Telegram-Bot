@@ -54,6 +54,8 @@ internal static partial class TelegramMessages
 
     internal static string ProgressGathering => ResourceManager.GetString(nameof(ProgressGathering), resourceCulture)!;
 
+    internal static string ProgressFailedSuffix => ResourceManager.GetString(nameof(ProgressFailedSuffix), resourceCulture)!;
+
     internal static string ProgressSending => ResourceManager.GetString(nameof(ProgressSending), resourceCulture)!;
 
     internal static string ProgressWarning => ResourceManager.GetString(nameof(ProgressWarning), resourceCulture)!;

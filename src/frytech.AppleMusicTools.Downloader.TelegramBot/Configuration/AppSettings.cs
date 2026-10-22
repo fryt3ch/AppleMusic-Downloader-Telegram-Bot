@@ -158,6 +158,12 @@ public class AppSettings
 
         [ConfigurationKeyName("PROCESS_TIMEOUT_SECONDS")]
         public int ProcessTimeoutSeconds { get; init; } = 300;
+
+        [ConfigurationKeyName("MAX_CONCURRENCY")]
+        public int MaxConcurrency { get; init; } = 3;
+
+        [ConfigurationKeyName("DELAY_AFTER_DOWNLOAD_SECONDS")]
+        public int DelayAfterDownloadSeconds { get; init; } = 3;
         
         [ConfigurationKeyName("GAMDL")]
         public AppleMusicDownloaderSection Gamdl { get; init; } = new();
@@ -192,6 +198,8 @@ public class AppSettings
             RuleFor(x => x.Gamdl).NotNull();
             RuleFor(x => x.YtDlp).NotNull();
             RuleFor(x => x.ProcessTimeoutSeconds).InclusiveBetween(1, 86400);
+            RuleFor(x => x.MaxConcurrency).InclusiveBetween(1, 16);
+            RuleFor(x => x.DelayAfterDownloadSeconds).InclusiveBetween(0, 3600);
 
             When(x => string.Equals(x.Provider, GamdlSongFileProvider.Name, StringComparison.OrdinalIgnoreCase), () =>
             {

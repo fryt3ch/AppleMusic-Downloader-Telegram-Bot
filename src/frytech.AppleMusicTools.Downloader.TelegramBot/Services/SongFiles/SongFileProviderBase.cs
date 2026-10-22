@@ -7,16 +7,24 @@ namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.SongFiles;
 
 public abstract class SongFileProviderBase : ISongFileProvider
 {
-    protected SongFileProviderBase(AppleMusicCatalog catalog)
+    private readonly SongFileProviderLimiter _limiter;
+
+    protected SongFileProviderBase(AppleMusicCatalog catalog, SongFileProviderLimiter limiter)
     {
         Catalog = catalog;
+        _limiter = limiter;
     }
 
     public abstract string ProviderName { get; }
     
     protected AppleMusicCatalog Catalog { get; }
 
-    public async Task<SongFile> GetSongFileAsync(string songId, string store, CancellationToken cancellationToken)
+    public Task<SongFile> GetSongFileAsync(string songId, string store, CancellationToken cancellationToken)
+    {
+        return _limiter.ExecuteAsync(() => GetSongFileCoreAsync(songId, store, cancellationToken), cancellationToken);
+    }
+
+    private async Task<SongFile> GetSongFileCoreAsync(string songId, string store, CancellationToken cancellationToken)
     {
         Song? song = null;
 

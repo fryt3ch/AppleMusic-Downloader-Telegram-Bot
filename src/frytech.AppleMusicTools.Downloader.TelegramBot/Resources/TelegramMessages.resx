@@ -74,7 +74,10 @@
     <value>Something went wrong with your latest songs request!</value>
   </data>
   <data name="ProgressGathering" xml:space="preserve">
-    <value>Songs processed: {0} of {1} ({2} failed).&#10;&#10;{3}</value>
+    <value>Songs processed: {0} of {1}{2}.&#10;&#10;{3}</value>
+  </data>
+  <data name="ProgressFailedSuffix" xml:space="preserve">
+    <value> ({0} failed)</value>
   </data>
   <data name="ProgressSending" xml:space="preserve">
     <value>All songs were gathered, sending them in groups: {0} of {1}.&#10;&#10;{2}</value>

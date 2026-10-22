@@ -8,6 +8,7 @@ public static class SongFileProviderExtensions
 {
     public static IServiceCollection AddSongFileProviders(this IServiceCollection services)
     {
+        services.AddSingleton<SongFileProviderLimiter>();
         services.AddScoped<PythonProcessRunner>();
 
         foreach (var registration in SongFileProviderRegistry.All)
