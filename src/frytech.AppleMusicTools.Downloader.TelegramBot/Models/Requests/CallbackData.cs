@@ -7,6 +7,7 @@ public abstract record CallbackData
     private const string DownloadSongPrefix = "dl_s_";
     private const string DownloadAlbumPrefix = "dl_al_";
     private const string DownloadPlaylistPrefix = "dl_pl_";
+    private const string CancelDownloadPrefix = "cancel_dl_";
 
     public static string ForArtist(string id) => $"{ArtistPrefix}{id}";
 
@@ -17,6 +18,8 @@ public abstract record CallbackData
     public static string ForDownloadAlbum(string id) => $"{DownloadAlbumPrefix}{id}";
 
     public static string ForDownloadPlaylist(string id) => $"{DownloadPlaylistPrefix}{id}";
+
+    public static string ForCancelDownload(string downloadId) => $"{CancelDownloadPrefix}{downloadId}";
 
     public static bool TryParse(string data, out CallbackData callbackData)
     {
@@ -33,6 +36,9 @@ public abstract record CallbackData
             return true;
 
         if (TryExtract(data, DownloadPlaylistPrefix, id => new DownloadPlaylist(id), out callbackData))
+            return true;
+
+        if (TryExtract(data, CancelDownloadPrefix, id => new CancelDownload(id), out callbackData))
             return true;
 
         return false;
@@ -64,4 +70,6 @@ public abstract record CallbackData
     public sealed record DownloadAlbum(string Id) : CallbackData;
 
     public sealed record DownloadPlaylist(string Id) : CallbackData;
+
+    public sealed record CancelDownload(string DownloadId) : CallbackData;
 }

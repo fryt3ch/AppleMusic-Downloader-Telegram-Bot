@@ -37,15 +37,6 @@ public sealed class CallbackQueryHandler
 
     public async Task HandleAsync(CallbackQuery callbackQuery, CancellationToken cancellationToken)
     {
-        try
-        {
-            await _client.AnswerCallbackQuery(callbackQuery.Id, cancellationToken: cancellationToken);
-        }
-        catch (Exception exception)
-        {
-            _logger.LogWarning(exception, "Failed to answer callback query {CallbackQueryId}", callbackQuery.Id);
-        }
-
         var message = callbackQuery.Message;
         var data = callbackQuery.Data;
 
@@ -53,8 +44,23 @@ public sealed class CallbackQueryHandler
         {
             _logger.LogWarning("Ignoring callback query {CallbackQueryId} with invalid payload {Data}", callbackQuery.Id, data);
 
+            await TryAnswerCallbackAsync(callbackQuery.Id, null, cancellationToken);
+
             return;
         }
+
+        if (callbackData is CallbackData.CancelDownload cancelDownload)
+        {
+            var result = await _downloadCoordinator.CancelAsync(cancelDownload.DownloadId, callbackQuery.From.Id, cancellationToken);
+
+            _logger.LogInformation("Cancel request {DownloadId} by user {UserId}: {Result}", cancelDownload.DownloadId, callbackQuery.From.Id, result.Message);
+
+            await TryAnswerCallbackAsync(callbackQuery.Id, result.Message, cancellationToken);
+
+            return;
+        }
+
+        await TryAnswerCallbackAsync(callbackQuery.Id, null, cancellationToken);
 
         var store = _appSettings.AppleMusic.DefaultStore;
         var replyParameters = new ReplyParameters { AllowSendingWithoutReply = true, MessageId = message.MessageId };
@@ -116,6 +122,18 @@ public sealed class CallbackQueryHandler
             {
                 _logger.LogWarning(sendException, "Failed to report callback error to chat {ChatId}", message.Chat.Id);
             }
+        }
+    }
+
+    private async Task TryAnswerCallbackAsync(string callbackQueryId, string? text, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _client.AnswerCallbackQuery(callbackQueryId, text: text, cancellationToken: cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Failed to answer callback query {CallbackQueryId}", callbackQueryId);
         }
     }
 

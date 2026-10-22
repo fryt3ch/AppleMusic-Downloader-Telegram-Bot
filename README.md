@@ -178,6 +178,9 @@ Fill in the `.env` file with your credentials:
 | `TELEGRAM__WEBHOOK__PATH`                |          | `/api/bot/update`                  | Local endpoint path for incoming updates       |
 | `TELEGRAM__WEBHOOK__SECRET_TOKEN`        |          | —                                  | Optional secret token validated on each update |
 | `TELEGRAM__WEBHOOK__MAX_CONNECTIONS`     |          | `50`                               | Max simultaneous webhook connections           |
+| `TELEGRAM__DOWNLOADS__MAX_CONCURRENCY`             |          | `2`                                | Number of downloads processed in parallel      |
+| `TELEGRAM__DOWNLOADS__MAX_PENDING_SONGS`           |          | `2000`                             | Soft cap on total songs in the queue           |
+| `TELEGRAM__DOWNLOADS__MAX_PENDING_BULK_PER_USER`   |          | `1`                                | Max pending album/playlist downloads per user  |
 | `TELEGRAM_API_ID`                        |          | —                                  | For local bot API profile only                 |
 | `TELEGRAM_API_HASH`                      |          | —                                  | For local bot API profile only                 |
 | `LOGGING__LOGLEVEL__DEFAULT`             |          | `Debug`                            | Log level (`Trace`, `Debug`, `Info`, …)        |

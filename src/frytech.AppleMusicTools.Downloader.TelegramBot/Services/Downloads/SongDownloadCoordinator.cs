@@ -1,62 +1,96 @@
-using System.Collections.Concurrent;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Downloads;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Requests;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Resources;
+using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Downloads;
 
 public sealed class SongDownloadCoordinator
 {
-    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly DownloadQueue _queue;
+    private readonly DownloadStatusReporter _statusReporter;
     private readonly ITelegramBotClient _client;
-    private readonly IHostApplicationLifetime _lifetime;
+    private readonly AppSettings _appSettings;
     private readonly ILogger<SongDownloadCoordinator> _logger;
 
-    private readonly ConcurrentDictionary<long, CancellationTokenSource> _pendingBulkDownloads = new();
+    private readonly object _bulkGate = new();
+    private readonly Dictionary<long, int> _bulkCounts = new();
 
     public SongDownloadCoordinator(
-        IServiceScopeFactory scopeFactory,
+        DownloadQueue queue,
+        DownloadStatusReporter statusReporter,
         ITelegramBotClient client,
-        IHostApplicationLifetime lifetime,
+        IOptions<AppSettings> appSettings,
         ILogger<SongDownloadCoordinator> logger)
     {
-        _scopeFactory = scopeFactory;
+        _queue = queue;
+        _statusReporter = statusReporter;
         _client = client;
-        _lifetime = lifetime;
+        _appSettings = appSettings.Value;
         _logger = logger;
     }
 
     public Task StartSingleAsync(Chat chat, User user, string songId, string store, ReplyParameters? replyParameters, CancellationToken cancellationToken)
     {
-        var downloadCts = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.ApplicationStopping);
-        var downloadId = Guid.NewGuid().ToString("N");
-
-        _logger.LogInformation(
-            "Enqueued single download {DownloadId} for user {UserId} ({Username}) in chat {ChatId}",
-            downloadId,
-            user.Id,
-            user.Username,
-            chat.Id);
-
-        RunAsync(chat, user, downloadId, [songId], store, replyParameters, downloadCts, onCompleted: null);
-
-        return Task.CompletedTask;
+        return EnqueueAsync(chat, user, [songId], store, replyParameters, isBulk: false, cancellationToken);
     }
 
-    public async Task StartBulkAsync(Chat chat, User user, IReadOnlyCollection<string> songIds, string store, ReplyParameters? replyParameters, CancellationToken cancellationToken)
+    public Task StartBulkAsync(Chat chat, User user,
+        IReadOnlyCollection<string> songIds,
+        string store,
+        ReplyParameters? replyParameters,
+        CancellationToken cancellationToken)
     {
-        var downloadCts = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.ApplicationStopping);
-        var downloadId = Guid.NewGuid().ToString("N");
+        return EnqueueAsync(chat, user, songIds, store, replyParameters, isBulk: true, cancellationToken);
+    }
 
-        if (!_pendingBulkDownloads.TryAdd(user.Id, downloadCts))
+    public async Task<CancelDownloadResult> CancelAsync(string downloadId, long userId, CancellationToken cancellationToken)
+    {
+        var outcome = _queue.TryCancel(downloadId, userId, out var request);
+
+        switch (outcome)
         {
-            downloadCts.Dispose();
+            case CancelDownloadOutcome.CancelledQueued:
+                if (request is not null)
+                {
+                    await _statusReporter.FinalizeAsync(request, "❌ Cancelled", CancellationToken.None);
+                }
 
-            _logger.LogWarning(
-                "Bulk download already pending for user {UserId} ({Username}) in chat {ChatId}",
-                user.Id,
-                user.Username,
-                chat.Id);
+                _logger.LogInformation("Queued download {DownloadId} was cancelled by user {UserId}", downloadId, userId);
+
+                return new CancelDownloadResult(true, "Cancelled");
+
+            case CancelDownloadOutcome.CancellingProcessing:
+                _logger.LogInformation("Processing download {DownloadId} is being cancelled by user {UserId}", downloadId, userId);
+
+                return new CancelDownloadResult(true, "Cancelling...");
+
+            case CancelDownloadOutcome.NotOwner:
+                return new CancelDownloadResult(false, "Not your download");
+
+            case CancelDownloadOutcome.NotFound:
+            case CancelDownloadOutcome.AlreadyFinished:
+            default:
+                return new CancelDownloadResult(false, "Already finished");
+        }
+    }
+
+    private async Task EnqueueAsync(Chat chat, User user, IReadOnlyCollection<string> songIds, string store, ReplyParameters? replyParameters, bool isBulk, CancellationToken cancellationToken)
+    {
+        var songIdArray = songIds.ToArray();
+
+        if (songIdArray.Length == 0)
+            return;
+
+        var maxPendingBulkPerUser = _appSettings.Telegram.Downloads.MaxPendingBulkPerUser;
+
+        if (isBulk && !TryReserveBulk(user.Id, maxPendingBulkPerUser))
+        {
+            _logger.LogWarning("Bulk download limit reached for user {UserId} ({Username}) in chat {ChatId}", user.Id, user.Username, chat.Id);
 
             await _client.SendMessage(
                 chat.Id,
@@ -67,74 +101,124 @@ public sealed class SongDownloadCoordinator
             return;
         }
 
-        _logger.LogInformation(
-            "Enqueued bulk download {DownloadId} of {Count} songs for user {UserId} ({Username}) in chat {ChatId}",
-            downloadId,
-            songIds.Count,
-            user.Id,
-            user.Username,
-            chat.Id);
-
-        RunAsync(chat, user, downloadId, songIds, store, replyParameters, downloadCts, onCompleted: () => _pendingBulkDownloads.TryRemove(user.Id, out _));
-    }
-
-    private void RunAsync(
-        Chat chat,
-        User user,
-        string downloadId,
-        IReadOnlyCollection<string> songIds,
-        string store,
-        ReplyParameters? replyParameters,
-        CancellationTokenSource downloadCts,
-        Action? onCompleted)
-    {
-        _ = Task.Run(async () =>
+        if (!_queue.TryReserveSongs(songIdArray.Length))
         {
-            using var loggingScope = _logger.BeginScope(new Dictionary<string, object?>
+            if (isBulk)
+                ReleaseBulk(user.Id);
+
+            _logger.LogWarning("Pending song limit reached for user {UserId} ({Username}) in chat {ChatId}; pending songs: {PendingSongs}",
+                user.Id, user.Username, chat.Id, _queue.PendingSongs);
+
+            await SendQueueLimitMessageAsync(chat, replyParameters, cancellationToken);
+
+            return;
+        }
+
+        var downloadId = Guid.NewGuid().ToString("N");
+        var startsImmediately = _queue.CanStartImmediately();
+        var statusKeyboard = new InlineKeyboardMarkup()
+            .AddButton(new InlineKeyboardButton("Cancel")
             {
-                ["DownloadId"] = downloadId,
-                ["UserId"] = user.Id,
-                ["Username"] = user.Username,
-                ["ChatId"] = chat.Id,
-                ["SongCount"] = songIds.Count,
-                ["Store"] = store,
+                CallbackData = CallbackData.ForCancelDownload(downloadId),
             });
 
-            _logger.LogDebug("Starting background download {DownloadId}", downloadId);
+        var request = new DownloadRequest
+        {
+            DownloadId = downloadId,
+            Chat = chat,
+            User = user,
+            SongIds = songIdArray,
+            Store = store,
+            ReplyParameters = replyParameters,
+            IsBulk = isBulk,
+            WasQueued = !startsImmediately,
+            StatusKeyboard = statusKeyboard,
+            OnCompleted = isBulk ? () => ReleaseBulk(user.Id) : null,
+        };
 
-            try
-            {
-                await using var serviceScope = _scopeFactory.CreateAsyncScope();
+        try
+        {
+            _queue.Enqueue(request);
+        }
+        catch (Exception exception)
+        {
+            _queue.Abandon(request);
 
-                var songSender = serviceScope.ServiceProvider.GetRequiredService<SongSender>();
+            _logger.LogError(exception, "Failed to enqueue download {DownloadId}", downloadId);
+            throw;
+        }
 
-                await songSender.SendSongs(chat, songIds, store, replyParameters, downloadCts.Token);
-            }
-            catch (OperationCanceledException) when (downloadCts.IsCancellationRequested)
-            {
-                _logger.LogInformation("Download {DownloadId} was cancelled", downloadId);
-            }
-            catch (Exception exception)
-            {
-                _logger.LogError(exception, "Failed to send songs for download {DownloadId}", downloadId);
+        int? statusMessageId = null;
 
-                try
-                {
-                    await _client.SendMessage(chat.Id, TelegramMessages.DownloadFailed);
-                }
-                catch (Exception sendException)
-                {
-                    _logger.LogError(sendException, "Failed to report a download error for {DownloadId}", downloadId);
-                }
-            }
-            finally
-            {
-                onCompleted?.Invoke();
+        try
+        {
+            var statusText = startsImmediately
+                ? "⬇️ Downloading…"
+                : $"⏳ Queued: position {request.Position} of {_queue.QueuedCount}";
 
-                downloadCts.Dispose();
+            statusMessageId = await _statusReporter.SendStatusAsync(
+                request,
+                statusText,
+                statusKeyboard,
+                cancellationToken);
+        }
+        finally
+        {
+            request.StatusMessageId = statusMessageId;
+            request.StatusMessageReady.TrySetResult(statusMessageId);
+        }
 
-                _logger.LogDebug("Background download {DownloadId} completed", downloadId);
-            }
-        });
+        _logger.LogInformation(
+            "Enqueued {Kind} download {DownloadId} for user {UserId} ({Username}) in chat {ChatId}: {Count} songs, queued={WasQueued}, position={Position}, pendingSongs={PendingSongs}",
+            isBulk ? "bulk" : "single", downloadId, user.Id, user.Username, chat.Id, songIdArray.Length, request.WasQueued, request.Position, _queue.PendingSongs);
+    }
+
+    private async Task SendQueueLimitMessageAsync(Chat chat, ReplyParameters? replyParameters, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _client.SendMessage(
+                chat.Id,
+                "Too many songs are already queued. Please try again later.",
+                replyParameters: replyParameters,
+                cancellationToken: cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Failed to send queue limit message to chat {ChatId}", chat.Id);
+        }
+    }
+
+    private bool TryReserveBulk(long userId, int maxPendingBulkPerUser)
+    {
+        lock (_bulkGate)
+        {
+            _bulkCounts.TryGetValue(userId, out var count);
+
+            if (count >= maxPendingBulkPerUser)
+                return false;
+
+            _bulkCounts[userId] = count + 1;
+
+            return true;
+        }
+    }
+
+    private void ReleaseBulk(long userId)
+    {
+        lock (_bulkGate)
+        {
+            if (!_bulkCounts.TryGetValue(userId, out var count))
+                return;
+
+            if (count <= 1)
+                _bulkCounts.Remove(userId);
+            else
+                _bulkCounts[userId] = count - 1;
+        }
     }
 }

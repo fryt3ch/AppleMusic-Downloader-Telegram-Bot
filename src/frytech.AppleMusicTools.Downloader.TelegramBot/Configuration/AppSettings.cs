@@ -38,6 +38,9 @@ public class AppSettings
         [ConfigurationKeyName("PROGRESS_UPDATE_INTERVAL_SECONDS")]
         public int ProgressUpdateIntervalSeconds { get; init; } = 2;
         
+        [ConfigurationKeyName("DOWNLOADS")]
+        public DownloadsSection Downloads { get; init; } = new();
+        
         public class WebhookSection
         {
             [ConfigurationKeyName("URL")]
@@ -79,6 +82,28 @@ public class AppSettings
                     .InclusiveBetween(1, int.MaxValue);
             }
         }
+        
+        public class DownloadsSection
+        {
+            [ConfigurationKeyName("MAX_CONCURRENCY")]
+            public int MaxConcurrency { get; init; } = 2;
+
+            [ConfigurationKeyName("MAX_PENDING_SONGS")]
+            public int MaxPendingSongs { get; init; } = 2000;
+
+            [ConfigurationKeyName("MAX_PENDING_BULK_PER_USER")]
+            public int MaxPendingBulkPerUser { get; init; } = 1;
+        }
+
+        public class DownloadsSectionValidator : AbstractValidator<DownloadsSection>
+        {
+            public DownloadsSectionValidator()
+            {
+                RuleFor(x => x.MaxConcurrency).InclusiveBetween(1, 16);
+                RuleFor(x => x.MaxPendingSongs).InclusiveBetween(1, 100000);
+                RuleFor(x => x.MaxPendingBulkPerUser).InclusiveBetween(1, 10);
+            }
+        }
     }
 
     public class TelegramSectionValidator : AbstractValidator<TelegramSection>
@@ -96,6 +121,10 @@ public class AppSettings
             RuleFor(x => x.Webhook!)
                 .SetValidator(new TelegramSection.WebhookSectionValidator())
                 .When(x => x.Webhook is not null);
+            
+            RuleFor(x => x.Downloads)
+                .NotNull()
+                .SetValidator(new TelegramSection.DownloadsSectionValidator());
         }
     }
     

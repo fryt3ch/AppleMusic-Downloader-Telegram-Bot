@@ -9,6 +9,7 @@ using frytech.AppleMusicTools.Downloader.TelegramBot.Telegram;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Downloads;
 
@@ -36,22 +37,37 @@ public class SongSender
         _progressUpdateInterval = TimeSpan.FromSeconds(appSettings.Value.Telegram.ProgressUpdateIntervalSeconds);
     }
 
-    public async Task SendSongs(Chat chat, IEnumerable<string> songIds, string store, ReplyParameters? replyParameters, CancellationToken cancellationToken)
+    public async Task SendSongs(
+        Chat chat,
+        IReadOnlyCollection<string> songIds,
+        string store,
+        ReplyParameters? replyParameters,
+        int? statusMessageId,
+        InlineKeyboardMarkup? statusKeyboard,
+        CancellationToken downloadToken,
+        CancellationToken sendToken)
     {
         var songIdsArray = songIds.ToArray();
 
         if (songIdsArray.Length == 0)
             return;
 
-        var cachedSongs = new List<CachedSong>();
+        var pendingBatch = new List<CachedSong>();
         var failedSongs = new List<SongDownloadFailedException>();
-        var progress = new DownloadProgressReporter(_client, chat, replyParameters, _progressUpdateInterval, _logger);
+        var progress = new DownloadProgressReporter(
+            _client,
+            chat,
+            replyParameters,
+            statusMessageId,
+            statusKeyboard,
+            _progressUpdateInterval,
+            _logger);
 
         _logger.LogInformation("Starting download of {Count} songs in chat {ChatId}", songIdsArray.Length, chat.Id);
 
         try
         {
-            await progress.StartAsync(songIdsArray.Length, cancellationToken);
+            await progress.StartAsync(songIdsArray.Length, sendToken);
 
             for (var i = 0; i < songIdsArray.Length; i++)
             {
@@ -65,9 +81,15 @@ public class SongSender
                         songId,
                         store,
                         ct => _songFileProvider.GetSongFileAsync(songId, store, ct),
-                        cancellationToken);
+                        downloadToken);
 
-                    cachedSongs.Add(cachedSong);
+                    pendingBatch.Add(cachedSong);
+
+                    if (pendingBatch.Count >= MEDIA_BATCH_SIZE)
+                    {
+                        await SendBatchAsync(chat, pendingBatch, replyParameters, sendToken);
+                        pendingBatch.Clear();
+                    }
                 }
                 catch (SongDownloadFailedException exception)
                 {
@@ -76,54 +98,77 @@ public class SongSender
                     failedSongs.Add(exception);
                 }
 
-                await progress.ReportAsync(i + 1, songIdsArray.Length, cancellationToken);
-            }
-            
-            var batches = cachedSongs
-                .Select((dataElement, index) => new { dataElement, index })
-                .GroupBy(x => x.index / MEDIA_BATCH_SIZE, x => x.dataElement)
-                .ToArray();
-
-            var sentSongsAmount = 0;
-
-            foreach (var batch in batches)
-            {
-                var batchArray = batch.ToArray();
-
-                if (batches.Length > 1)
-                    await progress.ReportSendingAsync(sentSongsAmount, songIdsArray.Length, cancellationToken);
-
-                await TelegramApiRetry.ExecuteAsync(
-                    requestToken => _client.SendMediaGroup(
-                        chat.Id,
-                        batchArray.Select(CreateInputMediaAudio),
-                        disableNotification: true,
-                        replyParameters: replyParameters,
-                        cancellationToken: requestToken),
-                    _logger,
-                    cancellationToken);
-
-                sentSongsAmount += batchArray.Length;
+                await progress.ReportAsync(i + 1, songIdsArray.Length, sendToken);
             }
 
-            await progress.CompleteAsync();
+            await SendBatchAsync(chat, pendingBatch, replyParameters, sendToken);
+            pendingBatch.Clear();
 
-            _logger.LogInformation(
-                "Finished download in chat {ChatId}: {Sent} sent, {Failed} failed",
-                chat.Id,
-                sentSongsAmount,
-                failedSongs.Count);
+            await progress.CompleteAsync(deleteMessage: true);
+
+            _logger.LogInformation("Finished download in chat {ChatId}: {Failed} failed", chat.Id, failedSongs.Count);
 
             if (failedSongs.Count > 0)
-                await SendFailedSongsReport(chat, failedSongs, replyParameters, cancellationToken);
+                await SendFailedSongsReport(chat, failedSongs, replyParameters, sendToken);
         }
-        finally
+        catch (OperationCanceledException) when (!sendToken.IsCancellationRequested)
         {
-            await progress.CompleteAsync();
+            _logger.LogInformation("Download in chat {ChatId} was cancelled; sending already downloaded songs", chat.Id);
+
+            await TrySendBatchAsync(chat, pendingBatch, replyParameters, sendToken);
+            pendingBatch.Clear();
+
+            await progress.CompleteAsync(deleteMessage: false);
+
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            await progress.CompleteAsync(deleteMessage: false);
+
+            throw;
+        }
+        catch
+        {
+            await progress.CompleteAsync(deleteMessage: false);
+
+            throw;
         }
     }
 
-    private async Task SendFailedSongsReport(Chat chat, IReadOnlyCollection<SongDownloadFailedException> failedSongs, ReplyParameters? replyParameters, CancellationToken cancellationToken)
+    private async Task SendBatchAsync(Chat chat, IReadOnlyCollection<CachedSong> batch, ReplyParameters? replyParameters, CancellationToken sendToken)
+    {
+        if (batch.Count == 0)
+            return;
+
+        await TelegramApiRetry.ExecuteAsync(
+            requestToken => _client.SendMediaGroup(
+                chat.Id,
+                batch.Select(CreateInputMediaAudio),
+                disableNotification: true,
+                replyParameters: replyParameters,
+                cancellationToken: requestToken),
+            _logger,
+            sendToken);
+    }
+
+    private async Task TrySendBatchAsync(Chat chat, IReadOnlyCollection<CachedSong> batch, ReplyParameters? replyParameters, CancellationToken sendToken)
+    {
+        try
+        {
+            await SendBatchAsync(chat, batch, replyParameters, sendToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // Host is stopping; best-effort.
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Failed to send partially downloaded songs in chat {ChatId}", chat.Id);
+        }
+    }
+
+    private async Task SendFailedSongsReport(Chat chat, IReadOnlyCollection<SongDownloadFailedException> failedSongs, ReplyParameters? replyParameters, CancellationToken sendToken)
     {
         var builder = new StringBuilder();
         builder.AppendLine(string.Format(TelegramMessages.FailedSongsHeader, failedSongs.Count));
@@ -139,7 +184,7 @@ public class SongSender
                 disableNotification: true,
                 cancellationToken: requestToken),
             _logger,
-            cancellationToken);
+            sendToken);
     }
 
     private static InputMediaAudio CreateInputMediaAudio(CachedSong cachedSong)

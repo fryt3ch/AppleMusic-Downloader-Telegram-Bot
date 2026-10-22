@@ -67,7 +67,11 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddDownloads(this IServiceCollection services)
     {
+        services.AddSingleton<DownloadQueue>();
+        services.AddSingleton<DownloadStatusReporter>();
         services.AddSingleton<SongDownloadCoordinator>();
+        services.AddHostedService<SongDownloadWorker>();
+        services.AddHostedService<DownloadPositionUpdater>();
         services.AddScoped<SongSender>();
 
         return services;

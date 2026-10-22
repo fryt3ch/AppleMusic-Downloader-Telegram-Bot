@@ -3,6 +3,7 @@ using frytech.AppleMusicTools.Downloader.TelegramBot.Resources;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Downloads;
 
@@ -11,10 +12,12 @@ public sealed class DownloadProgressReporter
     private readonly ITelegramBotClient _client;
     private readonly Chat _chat;
     private readonly ReplyParameters? _replyParameters;
+    private readonly InlineKeyboardMarkup? _replyMarkup;
     private readonly TimeSpan _updateInterval;
     private readonly ILogger _logger;
 
-    private Message? _statusMessage;
+    private int? _messageId;
+    private bool _ownsMessage;
     private string? _lastText;
     private long _lastUpdateTimestamp;
 
@@ -22,14 +25,19 @@ public sealed class DownloadProgressReporter
         ITelegramBotClient client,
         Chat chat,
         ReplyParameters? replyParameters,
+        int? statusMessageId,
+        InlineKeyboardMarkup? replyMarkup,
         TimeSpan updateInterval,
         ILogger logger)
     {
         _client = client;
         _chat = chat;
         _replyParameters = replyParameters;
+        _replyMarkup = replyMarkup;
         _updateInterval = updateInterval;
         _logger = logger;
+        _messageId = statusMessageId;
+        _ownsMessage = statusMessageId is null;
     }
 
     public Task StartAsync(int total, CancellationToken cancellationToken)
@@ -52,19 +60,22 @@ public sealed class DownloadProgressReporter
         return SendOrEditAsync(text, cancellationToken);
     }
 
-    public async Task CompleteAsync()
+    public async Task CompleteAsync(bool deleteMessage = true)
     {
-        var statusMessage = _statusMessage;
+        var messageId = _messageId;
 
-        if (statusMessage is null)
+        if (messageId is null)
             return;
 
-        _statusMessage = null;
+        _messageId = null;
         _lastText = null;
+
+        if (!deleteMessage && !_ownsMessage)
+            return;
 
         try
         {
-            await _client.DeleteMessage(_chat.Id, statusMessage.MessageId, CancellationToken.None);
+            await _client.DeleteMessage(_chat.Id, messageId.Value, CancellationToken.None);
         }
         catch (Exception exception)
         {
@@ -92,22 +103,29 @@ public sealed class DownloadProgressReporter
 
         try
         {
-            var statusMessage = _statusMessage;
-
-            var message = statusMessage is null
-                ? await _client.SendMessage(
+            if (_messageId is { } messageId)
+            {
+                await _client.EditMessageText(
+                    _chat.Id,
+                    messageId,
+                    text,
+                    replyMarkup: _replyMarkup,
+                    cancellationToken: cancellationToken);
+            }
+            else
+            {
+                var message = await _client.SendMessage(
                     _chat.Id,
                     text,
                     replyParameters: _replyParameters,
                     disableNotification: true,
-                    cancellationToken: cancellationToken)
-                : await _client.EditMessageText(
-                    _chat.Id,
-                    statusMessage.MessageId,
-                    text,
+                    replyMarkup: _replyMarkup,
                     cancellationToken: cancellationToken);
 
-            _statusMessage = message;
+                _messageId = message.MessageId;
+                _ownsMessage = true;
+            }
+
             _lastText = text;
             _lastUpdateTimestamp = Stopwatch.GetTimestamp();
         }
