@@ -22,22 +22,58 @@ public sealed class UpdateHandler : IUpdateHandler
         _logger = logger;
     }
 
-    public Task HandleUpdateAsync(Update update, CancellationToken cancellationToken)
+    public async Task HandleUpdateAsync(Update update, CancellationToken cancellationToken)
     {
-        _logger.LogDebug("Handling Telegram update {UpdateType} {UpdateId}", update.Type, update.Id);
+        var user = GetUser(update);
+        var chat = GetChat(update);
 
-        return update.Type switch
+        using var scope = _logger.BeginScope(new Dictionary<string, object?>
         {
-            UpdateType.InlineQuery when update.InlineQuery is { } inlineQuery =>
-                _inlineQueryHandler.HandleAsync(inlineQuery, cancellationToken),
+            ["UpdateId"] = update.Id,
+            ["UpdateType"] = update.Type.ToString(),
+            ["UserId"] = user?.Id,
+            ["Username"] = user?.Username,
+            ["ChatId"] = chat?.Id,
+        });
 
-            UpdateType.CallbackQuery when update.CallbackQuery is { } callbackQuery =>
-                _callbackQueryHandler.HandleAsync(callbackQuery, cancellationToken),
+        _logger.LogDebug("Handling update {UpdateId}", update.Id);
 
-            UpdateType.Message when update.Message is { } message =>
-                _messageHandler.HandleAsync(message, cancellationToken),
+        try
+        {
+            switch (update.Type)
+            {
+                case UpdateType.InlineQuery when update.InlineQuery is { } inlineQuery:
+                    await _inlineQueryHandler.HandleAsync(inlineQuery, cancellationToken);
+                    break;
 
-            _ => Task.CompletedTask,
-        };
+                case UpdateType.CallbackQuery when update.CallbackQuery is { } callbackQuery:
+                    await _callbackQueryHandler.HandleAsync(callbackQuery, cancellationToken);
+                    break;
+
+                case UpdateType.Message when update.Message is { } message:
+                    await _messageHandler.HandleAsync(message, cancellationToken);
+                    break;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to handle update {UpdateId}", update.Id);
+
+            throw;
+        }
+    }
+
+    private static User? GetUser(Update update)
+    {
+        return update.Message?.From ?? update.CallbackQuery?.From ?? update.InlineQuery?.From;
+    }
+
+    private static Chat? GetChat(Update update)
+    {
+        return update.Message?.Chat ?? update.CallbackQuery?.Message?.Chat;
     }
 }

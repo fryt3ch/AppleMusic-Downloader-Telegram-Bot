@@ -93,7 +93,7 @@ public sealed class MessageHandler
 
         if (!AppleMusicUrl.TryParse(targetUrl, out var reference) || reference is null)
         {
-            _logger.LogWarning("Received unsupported URL {Url} from chat {ChatId}", targetUrl, message.Chat.Id);
+            _logger.LogDebug("Received unsupported URL {Url} from chat {ChatId}", targetUrl, message.Chat.Id);
 
             await _client.SendMessage(
                 message.Chat.Id,
@@ -103,6 +103,12 @@ public sealed class MessageHandler
 
             return;
         }
+
+        _logger.LogDebug(
+            "Parsed Apple Music URL {Url} as {ResourceType} {ResourceId}",
+            targetUrl,
+            reference.ResourceType,
+            reference.Id);
 
         _logger.LogInformation(
             "Resolved Apple Music {ResourceType} {ResourceId} from URL in chat {ChatId}",
@@ -124,7 +130,7 @@ public sealed class MessageHandler
                         return;
                     }
 
-                    await _downloadCoordinator.StartSingleAsync(message.Chat, [reference.Id], store, replyParameters);
+                    await _downloadCoordinator.StartSingleAsync(message.Chat, message.From, [reference.Id], store, replyParameters);
                     break;
 
                 case ResourceType.Albums:

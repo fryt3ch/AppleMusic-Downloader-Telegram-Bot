@@ -33,6 +33,13 @@ public sealed class GamdlSongFileProvider : SongFileProviderBase
 
     protected override async Task<SongFile> GetSongFileAsync(Song song, CancellationToken cancellationToken)
     {
+        _logger.LogDebug(
+            "Downloading song {SongId} '{Artist} - {Title}' via {Provider}",
+            song.Id,
+            song.Attributes.ArtistName,
+            song.Attributes.Name,
+            ProviderName);
+
         var songUrl = AppleMusicUrl.Create(song.ResourceType, song.Id, _appSettings.AppleMusic.DefaultStore);
         var trackStream = await DownloadTrackAsStreamAsync(songUrl.AbsoluteUri, cancellationToken);
 

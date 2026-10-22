@@ -58,6 +58,8 @@ public class SongSender
             {
                 var songId = songIdsArray[i];
 
+                _logger.LogDebug("Processing song {SongId}", songId);
+
                 using (await KeyedSemaphore.LockAsync(songId, cancellationToken))
                 {
                     try

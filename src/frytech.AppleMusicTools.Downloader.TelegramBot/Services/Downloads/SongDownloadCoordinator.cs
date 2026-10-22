@@ -26,13 +26,20 @@ public sealed class SongDownloadCoordinator
         _logger = logger;
     }
 
-    public Task StartSingleAsync(Chat chat, IReadOnlyCollection<string> songIds, string store, ReplyParameters? replyParameters)
+    public Task StartSingleAsync(Chat chat, User user, IReadOnlyCollection<string> songIds, string store, ReplyParameters? replyParameters)
     {
         var downloadCts = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.ApplicationStopping);
+        var downloadId = Guid.NewGuid().ToString("N");
 
-        _logger.LogInformation("Enqueued single download of {Count} songs in chat {ChatId}", songIds.Count, chat.Id);
+        _logger.LogInformation(
+            "Enqueued single download {DownloadId} of {Count} songs for user {UserId} ({Username}) in chat {ChatId}",
+            downloadId,
+            songIds.Count,
+            user.Id,
+            user.Username,
+            chat.Id);
 
-        RunAsync(chat, songIds, store, replyParameters, downloadCts, onCompleted: null);
+        RunAsync(chat, user, downloadId, songIds, store, replyParameters, downloadCts, onCompleted: null);
 
         return Task.CompletedTask;
     }
@@ -40,12 +47,17 @@ public sealed class SongDownloadCoordinator
     public async Task StartBulkAsync(Chat chat, User user, IReadOnlyCollection<string> songIds, string store, ReplyParameters? replyParameters, CancellationToken cancellationToken)
     {
         var downloadCts = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.ApplicationStopping);
+        var downloadId = Guid.NewGuid().ToString("N");
 
         if (!_pendingBulkDownloads.TryAdd(user.Id, downloadCts))
         {
             downloadCts.Dispose();
 
-            _logger.LogWarning("Bulk download already pending for user {UserId} in chat {ChatId}", user.Id, chat.Id);
+            _logger.LogWarning(
+                "Bulk download already pending for user {UserId} ({Username}) in chat {ChatId}",
+                user.Id,
+                user.Username,
+                chat.Id);
 
             await _client.SendMessage(
                 chat.Id,
@@ -57,17 +69,21 @@ public sealed class SongDownloadCoordinator
         }
 
         _logger.LogInformation(
-            "Enqueued bulk download of {Count} songs for user {UserId} in chat {ChatId}",
+            "Enqueued bulk download {DownloadId} of {Count} songs for user {UserId} ({Username}) in chat {ChatId}",
+            downloadId,
             songIds.Count,
             user.Id,
+            user.Username,
             chat.Id);
 
-        RunAsync(chat, songIds, store, replyParameters, downloadCts,
+        RunAsync(chat, user, downloadId, songIds, store, replyParameters, downloadCts,
             onCompleted: () => _pendingBulkDownloads.TryRemove(user.Id, out _));
     }
 
     private void RunAsync(
         Chat chat,
+        User user,
+        string downloadId,
         IReadOnlyCollection<string> songIds,
         string store,
         ReplyParameters? replyParameters,
@@ -76,23 +92,33 @@ public sealed class SongDownloadCoordinator
     {
         _ = Task.Run(async () =>
         {
-            _logger.LogDebug("Starting background download in chat {ChatId}", chat.Id);
+            using var loggingScope = _logger.BeginScope(new Dictionary<string, object?>
+            {
+                ["DownloadId"] = downloadId,
+                ["UserId"] = user.Id,
+                ["Username"] = user.Username,
+                ["ChatId"] = chat.Id,
+                ["SongCount"] = songIds.Count,
+                ["Store"] = store,
+            });
+
+            _logger.LogDebug("Starting background download {DownloadId}", downloadId);
 
             try
             {
-                await using var scope = _scopeFactory.CreateAsyncScope();
+                await using var serviceScope = _scopeFactory.CreateAsyncScope();
 
-                var songSender = scope.ServiceProvider.GetRequiredService<SongSender>();
+                var songSender = serviceScope.ServiceProvider.GetRequiredService<SongSender>();
 
                 await songSender.SendSongs(chat, songIds, store, replyParameters, downloadCts.Token);
             }
             catch (OperationCanceledException) when (downloadCts.IsCancellationRequested)
             {
-                _logger.LogInformation("Download in chat {ChatId} was cancelled", chat.Id);
+                _logger.LogInformation("Download {DownloadId} was cancelled", downloadId);
             }
             catch (Exception exception)
             {
-                _logger.LogError(exception, "Failed to send songs to chat {ChatId}", chat.Id);
+                _logger.LogError(exception, "Failed to send songs for download {DownloadId}", downloadId);
 
                 try
                 {
@@ -100,7 +126,7 @@ public sealed class SongDownloadCoordinator
                 }
                 catch (Exception sendException)
                 {
-                    _logger.LogError(sendException, "Failed to report a download error to chat {ChatId}", chat.Id);
+                    _logger.LogError(sendException, "Failed to report a download error for {DownloadId}", downloadId);
                 }
             }
             finally
@@ -109,7 +135,7 @@ public sealed class SongDownloadCoordinator
 
                 downloadCts.Dispose();
 
-                _logger.LogDebug("Background download in chat {ChatId} completed", chat.Id);
+                _logger.LogDebug("Background download {DownloadId} completed", downloadId);
             }
         });
     }
