@@ -40,17 +40,17 @@ public sealed class DownloadProgressReporter
         _ownsMessage = statusMessageId is null;
     }
 
-    public Task StartAsync(int total, CancellationToken cancellationToken)
+    public Task StartAsync(int total, int failed, CancellationToken cancellationToken)
     {
-        return SendOrEditAsync(FormatGathering(0, total), cancellationToken);
+        return SendOrEditAsync(FormatGathering(0, total, failed), cancellationToken);
     }
 
-    public async Task ReportAsync(int processed, int total, CancellationToken cancellationToken)
+    public async Task ReportAsync(int processed, int total, int failed, CancellationToken cancellationToken)
     {
         if (!ShouldUpdate())
             return;
 
-        await SendOrEditAsync(FormatGathering(processed, total), cancellationToken);
+        await SendOrEditAsync(FormatGathering(processed, total, failed), cancellationToken);
     }
 
     public Task ReportSendingAsync(int sent, int total, CancellationToken cancellationToken)
@@ -83,9 +83,9 @@ public sealed class DownloadProgressReporter
         }
     }
 
-    private static string FormatGathering(int processed, int total)
+    private static string FormatGathering(int processed, int total, int failed)
     {
-        return string.Format(TelegramMessages.ProgressGathering, processed, total, TelegramMessages.ProgressWarning);
+        return string.Format(TelegramMessages.ProgressGathering, processed, total, failed, TelegramMessages.ProgressWarning);
     }
 
     private bool ShouldUpdate()

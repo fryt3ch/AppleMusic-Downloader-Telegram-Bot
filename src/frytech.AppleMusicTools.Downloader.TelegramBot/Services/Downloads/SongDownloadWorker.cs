@@ -97,9 +97,7 @@ public sealed class SongDownloadWorker : BackgroundService
             await _statusReporter.EditStatusAsync(request, "⬇️ Downloading…", request.StatusKeyboard, CancellationToken.None);
         }
 
-        using var downloadCts = CancellationTokenSource.CreateLinkedTokenSource(
-            stoppingToken,
-            request.UserCancellation.Token);
+        using var downloadCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, request.UserCancellation.Token);
 
         try
         {
@@ -125,7 +123,7 @@ public sealed class SongDownloadWorker : BackgroundService
 
             request.Status = DownloadStatus.Cancelled;
 
-            await _statusReporter.FinalizeAsync(request, "❌ Cancelled", CancellationToken.None);
+            await _statusReporter.DeleteAsync(request, CancellationToken.None);
         }
         catch (OperationCanceledException)
         {
@@ -143,10 +141,7 @@ public sealed class SongDownloadWorker : BackgroundService
 
             try
             {
-                await _client.SendMessage(
-                    request.Chat.Id,
-                    TelegramMessages.DownloadFailed,
-                    cancellationToken: CancellationToken.None);
+                await _client.SendMessage(request.Chat.Id, TelegramMessages.DownloadFailed, cancellationToken: CancellationToken.None);
             }
             catch (Exception sendEx)
             {

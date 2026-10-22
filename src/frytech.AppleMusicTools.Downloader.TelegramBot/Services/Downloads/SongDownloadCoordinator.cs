@@ -57,7 +57,7 @@ public sealed class SongDownloadCoordinator
             case CancelDownloadOutcome.CancelledQueued:
                 if (request is not null)
                 {
-                    await _statusReporter.FinalizeAsync(request, "❌ Cancelled", CancellationToken.None);
+                    await _statusReporter.DeleteAsync(request, CancellationToken.None);
                 }
 
                 _logger.LogInformation("Queued download {DownloadId} was cancelled by user {UserId}", downloadId, userId);

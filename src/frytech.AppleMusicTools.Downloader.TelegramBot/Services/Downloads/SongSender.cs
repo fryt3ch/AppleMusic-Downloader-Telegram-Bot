@@ -67,7 +67,7 @@ public class SongSender
 
         try
         {
-            await progress.StartAsync(songIdsArray.Length, sendToken);
+            await progress.StartAsync(songIdsArray.Length, failed: 0, sendToken);
 
             for (var i = 0; i < songIdsArray.Length; i++)
             {
@@ -98,7 +98,7 @@ public class SongSender
                     failedSongs.Add(ex);
                 }
 
-                await progress.ReportAsync(i + 1, songIdsArray.Length, sendToken);
+                await progress.ReportAsync(i + 1, songIdsArray.Length, failedSongs.Count, sendToken);
             }
 
             await SendBatchAsync(chat, pendingBatch, replyParameters, sendToken);
@@ -113,7 +113,11 @@ public class SongSender
         }
         catch (OperationCanceledException) when (!sendToken.IsCancellationRequested)
         {
-            _logger.LogInformation("Download in chat {ChatId} was cancelled; sending already downloaded songs", chat.Id);
+            _logger.LogInformation("Download in chat {ChatId} was cancelled: {Pending} downloaded, {Failed} failed; sending {Pending} already downloaded songs",
+                chat.Id,
+                pendingBatch.Count,
+                failedSongs.Count,
+                pendingBatch.Count);
 
             await TrySendBatchAsync(chat, pendingBatch, replyParameters, sendToken);
             pendingBatch.Clear();
@@ -154,6 +158,13 @@ public class SongSender
 
     private async Task TrySendBatchAsync(Chat chat, IReadOnlyCollection<CachedSong> batch, ReplyParameters? replyParameters, CancellationToken sendToken)
     {
+        if (batch.Count == 0)
+        {
+            _logger.LogDebug("No already-downloaded songs to send in chat {ChatId}", chat.Id);
+
+            return;
+        }
+
         try
         {
             await SendBatchAsync(chat, batch, replyParameters, sendToken);
