@@ -249,7 +249,7 @@ public sealed class CallbackQueryHandler
 
         var replyMarkup = batch.HasMore
             ? new InlineKeyboardMarkup().AddButton(
-                new InlineKeyboardButton(string.Format(TelegramButtons.DownloadNextBatch, _maxSongsPerBatch))
+                new InlineKeyboardButton(TelegramButtons.DownloadNextBatch)
                 {
                     CallbackData = nextCallback(batch.NextOffset),
                 })

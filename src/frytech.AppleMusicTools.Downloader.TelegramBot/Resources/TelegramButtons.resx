@@ -89,6 +89,6 @@
     <value>Download songs</value>
   </data>
   <data name="DownloadNextBatch" xml:space="preserve">
-    <value>Load next {0} songs</value>
+    <value>Load more songs</value>
   </data>
 </root>
