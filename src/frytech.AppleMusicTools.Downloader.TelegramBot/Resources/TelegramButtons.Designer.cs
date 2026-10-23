@@ -61,4 +61,6 @@ internal static partial class TelegramButtons
     internal static string Playlists => ResourceManager.GetString(nameof(Playlists), resourceCulture)!;
 
     internal static string GetAllSongs => ResourceManager.GetString(nameof(GetAllSongs), resourceCulture)!;
+
+    internal static string DownloadNextBatch => ResourceManager.GetString(nameof(DownloadNextBatch), resourceCulture)!;
 }

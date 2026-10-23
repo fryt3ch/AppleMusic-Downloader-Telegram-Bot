@@ -104,11 +104,16 @@ public class AppleMusicCatalog
         return results;
     }
 
-    public async Task<IEnumerable<Resource>> GetAlbumTracksAsync(int offset, int limit, string albumId, string store)
+    public async Task<TrackPage> GetAlbumTracksPageAsync(int offset, int limit, string albumId, string store)
     {
         var response = await _catalogClient.GetCatalogAlbumTracks(albumId, store, CreatePageOptions(offset, limit));
 
-        return response.Data ?? [];
+        return new TrackPage(response.Data ?? [], !string.IsNullOrEmpty(response.Next));
+    }
+
+    public async Task<IEnumerable<Resource>> GetAlbumTracksAsync(int offset, int limit, string albumId, string store)
+    {
+        return (await GetAlbumTracksPageAsync(offset, limit, albumId, store)).Items;
     }
 
     public async Task<IEnumerable<Resource>> GetAuthorTracksAsync(int offset, int limit, string authorId, string store)
@@ -132,11 +137,16 @@ public class AppleMusicCatalog
         return response.Data ?? [];
     }
 
-    public async Task<IEnumerable<Resource>> GetPlaylistTracksAsync(int offset, int limit, string playlistId, string store)
+    public async Task<TrackPage> GetPlaylistTracksPageAsync(int offset, int limit, string playlistId, string store)
     {
         var response = await _catalogClient.GetCatalogPlaylistTracks(playlistId, store, CreatePageOptions(offset, limit));
 
-        return response.Data ?? [];
+        return new TrackPage(response.Data ?? [], !string.IsNullOrEmpty(response.Next));
+    }
+
+    public async Task<IEnumerable<Resource>> GetPlaylistTracksAsync(int offset, int limit, string playlistId, string store)
+    {
+        return (await GetPlaylistTracksPageAsync(offset, limit, playlistId, store)).Items;
     }
 
     private static PageOptions CreatePageOptions(int offset, int limit)

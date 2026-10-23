@@ -179,6 +179,8 @@ The URL must be publicly reachable and routed to the bot on port `8080`.
 
 ## Configuration
 
+The bot container loads `.env` through `env_file`, so every variable listed below is passed without a per-key mapping in `docker-compose.yml`.
+
 ### Core
 
 | Variable | Required | Default | Description |
@@ -187,6 +189,7 @@ The URL must be publicly reachable and routed to the bot on port `8080`.
 | `TELEGRAM__STORAGE_CHAT_ID` | Yes | — | Chat ID used to cache uploaded audio. |
 | `APPLE_MUSIC__API_TOKEN` | Yes | — | Apple Music JWT developer token. |
 | `APPLE_MUSIC__DEFAULT_STORE` | No | `us` | Storefront used for search and metadata (`us`, `kz`, `ru`, ...). |
+| `APPLE_MUSIC__STORE_API_URL` | No | `https://amp-api-edge.music.apple.com/v1/` | Apple Music Catalog API base URL. |
 | `DOWNLOADER__PROVIDER` | No | `gamdl` | `gamdl` for Apple Music or `ytdlp` for YouTube. |
 | `DOWNLOADER__GAMDL__COOKIES_PATH` | `gamdl` | `/app/data/cookies.txt` | Apple Music cookies file. |
 | `DOWNLOADER__YTDLP__COOKIES_PATH` | No | `/app/data/cookies.txt` | Optional YouTube cookies file. |
@@ -201,6 +204,8 @@ The URL must be publicly reachable and routed to the bot on port `8080`.
 | `TELEGRAM__DOWNLOADS__MAX_CONCURRENCY` | `2` | Number of download requests processed in parallel. |
 | `TELEGRAM__DOWNLOADS__MAX_PENDING_SONGS` | `2000` | Soft cap on total songs waiting in the queue. |
 | `TELEGRAM__DOWNLOADS__MAX_PENDING_BULK_PER_USER` | `1` | Maximum pending album/playlist requests per user. |
+| `TELEGRAM__DOWNLOADS__MAX_SONGS_PER_BATCH` | `250` | Maximum songs queued by one album/playlist batch request. Must be between 1 and 250. |
+| `TELEGRAM__DOWNLOADS__SONGS_PAGE_SIZE` | `250` | Apple Music tracks page size. Must be between 1 and 250. |
 | `TELEGRAM__PROGRESS_UPDATE_INTERVAL_SECONDS` | `2` | Minimum interval between progress message edits (`0` = every song). |
 
 **Two different concurrency limits:**
@@ -290,7 +295,7 @@ The bot detects songs, albums, artists, and playlists.
 
 ### Buttons and progress
 
-After a result appears, use the inline buttons to download a song, download a whole album/playlist, or browse an artist. While a bulk download runs, the status message shows the queue position and progress. A **Cancel** button stops the request; tracks already downloaded are still sent.
+After a result appears, use the inline buttons to download a song, download a whole album/playlist, or browse an artist. Albums and playlists are queued in batches of up to 250 tracks; when more tracks are available, use the **Load next 250 songs** button to continue. While a bulk download runs, the status message shows the queue position and progress. A **Cancel** button stops the request; tracks already downloaded are still sent.
 
 ### Commands
 

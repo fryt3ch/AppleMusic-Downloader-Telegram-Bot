@@ -13,11 +13,11 @@ public sealed class DownloadProgressReporter
     private readonly Chat _chat;
     private readonly ReplyParameters? _replyParameters;
     private readonly InlineKeyboardMarkup? _replyMarkup;
+    private readonly Action<int?>? _statusMessageIdChanged;
     private readonly TimeSpan _updateInterval;
     private readonly ILogger _logger;
 
     private int? _messageId;
-    private bool _ownsMessage;
     private string? _lastText;
     private long _lastUpdateTimestamp;
 
@@ -27,6 +27,7 @@ public sealed class DownloadProgressReporter
         ReplyParameters? replyParameters,
         int? statusMessageId,
         InlineKeyboardMarkup? replyMarkup,
+        Action<int?>? statusMessageIdChanged,
         TimeSpan updateInterval,
         ILogger logger)
     {
@@ -34,10 +35,10 @@ public sealed class DownloadProgressReporter
         _chat = chat;
         _replyParameters = replyParameters;
         _replyMarkup = replyMarkup;
+        _statusMessageIdChanged = statusMessageIdChanged;
         _updateInterval = updateInterval;
         _logger = logger;
         _messageId = statusMessageId;
-        _ownsMessage = statusMessageId is null;
     }
 
     public Task StartAsync(int total, int failed, CancellationToken cancellationToken)
@@ -60,22 +61,50 @@ public sealed class DownloadProgressReporter
         return SendOrEditAsync(text, cancellationToken);
     }
 
-    public async Task CompleteAsync(bool deleteMessage = true)
+    public async Task MoveToBottomAsync(CancellationToken cancellationToken)
     {
         var messageId = _messageId;
 
         if (messageId is null)
             return;
 
+        var text = _lastText;
+
+        try
+        {
+            await _client.DeleteMessage(_chat.Id, messageId.Value, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to move the download progress message in chat {ChatId}", _chat.Id);
+        }
+
         _messageId = null;
         _lastText = null;
+        _statusMessageIdChanged?.Invoke(null);
 
-        if (!deleteMessage && !_ownsMessage)
+        if (text is not null)
+            await SendOrEditAsync(text, cancellationToken);
+    }
+
+    public async Task CompleteAsync(bool deleteMessage = true)
+    {
+        var messageId = _messageId;
+
+        if (messageId is null || !deleteMessage)
             return;
+
+        _messageId = null;
+        _lastText = null;
 
         try
         {
             await _client.DeleteMessage(_chat.Id, messageId.Value, CancellationToken.None);
+            _statusMessageIdChanged?.Invoke(null);
         }
         catch (Exception ex)
         {
@@ -85,8 +114,11 @@ public sealed class DownloadProgressReporter
 
     private static string FormatGathering(int processed, int total, int failed)
     {
+        if (total <= 1)
+            return TelegramMessages.DownloadingStatus;
+
         var failedSuffix = failed > 0
-            ? string.Format(TelegramMessages.ProgressFailedSuffix, failed)
+            ? $" {string.Format(TelegramMessages.ProgressFailedSuffix, failed)}"
             : string.Empty;
 
         return string.Format(TelegramMessages.ProgressGathering, processed, total, failedSuffix, TelegramMessages.ProgressWarning);
@@ -127,7 +159,7 @@ public sealed class DownloadProgressReporter
                     cancellationToken: cancellationToken);
 
                 _messageId = message.MessageId;
-                _ownsMessage = true;
+                _statusMessageIdChanged?.Invoke(message.MessageId);
             }
 
             _lastText = text;

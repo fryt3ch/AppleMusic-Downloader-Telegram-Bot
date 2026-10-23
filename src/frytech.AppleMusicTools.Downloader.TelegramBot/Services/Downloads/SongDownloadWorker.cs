@@ -92,11 +92,6 @@ public sealed class SongDownloadWorker : BackgroundService
             return;
         }
 
-        if (statusMessageId is not null && request.WasQueued)
-        {
-            await _statusReporter.EditStatusAsync(request, TelegramMessages.DownloadingStatus, request.StatusKeyboard, CancellationToken.None);
-        }
-
         using var downloadCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, request.UserCancellation.Token);
 
         try
@@ -112,8 +107,14 @@ public sealed class SongDownloadWorker : BackgroundService
                 request.ReplyParameters,
                 statusMessageId,
                 request.StatusKeyboard,
+                id => request.StatusMessageId = id,
+                request.SongOffsets,
+                offset => request.ResumeOffset = offset,
                 downloadCts.Token,
                 stoppingToken);
+
+            if (request.BatchNotice is { } batchNotice)
+                await _statusReporter.SendBatchNoticeAsync(request.Chat, batchNotice, CancellationToken.None);
 
             request.Status = DownloadStatus.Completed;
         }
@@ -123,7 +124,10 @@ public sealed class SongDownloadWorker : BackgroundService
 
             request.Status = DownloadStatus.Cancelled;
 
-            await _statusReporter.DeleteAsync(request, CancellationToken.None);
+            if (request.RestoreMessage is { } restoreMessage)
+                await _statusReporter.RestoreBatchMessageAsync(request, restoreMessage, request.ResumeOffset, CancellationToken.None);
+            else
+                await _statusReporter.DeleteAsync(request, CancellationToken.None);
         }
         catch (OperationCanceledException)
         {

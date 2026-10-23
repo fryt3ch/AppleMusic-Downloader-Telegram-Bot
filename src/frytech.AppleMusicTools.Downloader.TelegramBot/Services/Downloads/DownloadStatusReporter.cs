@@ -1,6 +1,9 @@
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Downloads;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Resources;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Telegram;
 using Telegram.Bot;
+using Telegram.Bot.Exceptions;
+using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Downloads;
@@ -16,8 +19,34 @@ public sealed class DownloadStatusReporter
         _logger = logger;
     }
 
-    public async Task<int?> SendStatusAsync(DownloadRequest request, string text, InlineKeyboardMarkup replyMarkup, CancellationToken cancellationToken)
+    public async Task<int?> SendStatusAsync(DownloadRequest request, string text, InlineKeyboardMarkup replyMarkup, int? existingMessageId, CancellationToken cancellationToken)
     {
+        if (existingMessageId is { } messageId)
+        {
+            try
+            {
+                await TelegramApiRetry.ExecuteAsync(
+                    requestToken => _client.EditMessageText(
+                        request.Chat.Id,
+                        messageId,
+                        text,
+                        replyMarkup: replyMarkup,
+                        cancellationToken: requestToken),
+                    _logger,
+                    cancellationToken);
+
+                return messageId;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to reuse status message {MessageId} for {DownloadId}", messageId, request.DownloadId);
+            }
+        }
+
         try
         {
             var message = await TelegramApiRetry.ExecuteAsync(
@@ -42,6 +71,64 @@ public sealed class DownloadStatusReporter
             _logger.LogWarning(ex, "Failed to send download status message for {DownloadId}", request.DownloadId);
             return null;
         }
+    }
+
+    public async Task SendBatchNoticeAsync(Chat chat, DownloadBatchNotice notice, CancellationToken cancellationToken)
+    {
+        if (notice.ReplaceMessageId is { } messageId)
+        {
+            try
+            {
+                await _client.DeleteMessage(chat.Id, messageId, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (ApiRequestException ex) when (ex.ErrorCode == 400)
+            {
+                _logger.LogDebug(ex, "Previous batch notice {MessageId} was already removed in chat {ChatId}", messageId, chat.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to delete the previous batch notice {MessageId} in chat {ChatId}", messageId, chat.Id);
+            }
+        }
+
+        try
+        {
+            await TelegramApiRetry.ExecuteAsync(
+                requestToken => _client.SendMessage(
+                    chat.Id,
+                    notice.Text,
+                    replyParameters: notice.ReplyParameters,
+                    disableNotification: true,
+                    replyMarkup: notice.ReplyMarkup,
+                    cancellationToken: requestToken),
+                _logger,
+                cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send the batch notice in chat {ChatId}", chat.Id);
+        }
+    }
+
+    public Task RestoreBatchMessageAsync(DownloadRequest request, DownloadBatchMessage message, int resumeOffset, CancellationToken cancellationToken)
+    {
+        var markup = new InlineKeyboardMarkup().AddButton(
+            new InlineKeyboardButton(TelegramButtons.DownloadNextBatch)
+            {
+                CallbackData = message.BuildCallback(resumeOffset),
+            });
+
+        var notice = new DownloadBatchNotice(message.Text, markup, request.ReplyParameters, request.StatusMessageId);
+
+        return SendBatchNoticeAsync(request.Chat, notice, cancellationToken);
     }
 
     public async Task EditStatusAsync(DownloadRequest request, string text, InlineKeyboardMarkup? replyMarkup, CancellationToken cancellationToken)

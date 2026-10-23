@@ -36,16 +36,22 @@ public sealed class SongDownloadCoordinator
 
     public Task StartSingleAsync(Chat chat, User user, string songId, string store, ReplyParameters? replyParameters, CancellationToken cancellationToken)
     {
-        return EnqueueAsync(chat, user, [songId], store, replyParameters, isBulk: false, cancellationToken);
+        return EnqueueAsync(chat, user, [songId], songOffsets: [], store, replyParameters, isBulk: false, batchNotice: null, restoreMessage: null, initialResumeOffset: 0, existingStatusMessageId: null, cancellationToken);
     }
 
-    public Task StartBulkAsync(Chat chat, User user,
-        IReadOnlyCollection<string> songIds,
-        string store,
-        ReplyParameters? replyParameters,
-        CancellationToken cancellationToken)
+    public Task<bool> StartBulkAsync(Chat chat, User user, IReadOnlyCollection<string> songIds, IReadOnlyList<int> songOffsets, string store, ReplyParameters? replyParameters, DownloadBatchNotice? batchNotice, DownloadBatchMessage? restoreMessage, int initialResumeOffset, int? existingStatusMessageId, CancellationToken cancellationToken)
     {
-        return EnqueueAsync(chat, user, songIds, store, replyParameters, isBulk: true, cancellationToken);
+        var maxSongsPerBatch = _appSettings.Telegram.Downloads.MaxSongsPerBatch;
+
+        var limitedSongIds = songIds.Count > maxSongsPerBatch
+            ? songIds.Take(maxSongsPerBatch).ToArray()
+            : songIds;
+
+        var limitedSongOffsets = songOffsets.Count > maxSongsPerBatch
+            ? songOffsets.Take(maxSongsPerBatch).ToArray()
+            : songOffsets;
+
+        return EnqueueAsync(chat, user, limitedSongIds, limitedSongOffsets, store, replyParameters, isBulk: true, batchNotice, restoreMessage, initialResumeOffset, existingStatusMessageId, cancellationToken);
     }
 
     public async Task<CancelDownloadResult> CancelAsync(string downloadId, long userId, CancellationToken cancellationToken)
@@ -57,7 +63,10 @@ public sealed class SongDownloadCoordinator
             case CancelDownloadOutcome.CancelledQueued:
                 if (request is not null)
                 {
-                    await _statusReporter.DeleteAsync(request, CancellationToken.None);
+                    if (request.RestoreMessage is { } restoreMessage)
+                        await _statusReporter.RestoreBatchMessageAsync(request, restoreMessage, request.ResumeOffset, CancellationToken.None);
+                    else
+                        await _statusReporter.DeleteAsync(request, CancellationToken.None);
                 }
 
                 _logger.LogInformation("Queued download {DownloadId} was cancelled by user {UserId}", downloadId, userId);
@@ -79,12 +88,12 @@ public sealed class SongDownloadCoordinator
         }
     }
 
-    private async Task EnqueueAsync(Chat chat, User user, IReadOnlyCollection<string> songIds, string store, ReplyParameters? replyParameters, bool isBulk, CancellationToken cancellationToken)
+    private async Task<bool> EnqueueAsync(Chat chat, User user, IReadOnlyCollection<string> songIds, IReadOnlyList<int> songOffsets, string store, ReplyParameters? replyParameters, bool isBulk, DownloadBatchNotice? batchNotice, DownloadBatchMessage? restoreMessage, int initialResumeOffset, int? existingStatusMessageId, CancellationToken cancellationToken)
     {
         var songIdArray = songIds.ToArray();
 
         if (songIdArray.Length == 0)
-            return;
+            return false;
 
         var maxPendingBulkPerUser = _appSettings.Telegram.Downloads.MaxPendingBulkPerUser;
 
@@ -98,7 +107,7 @@ public sealed class SongDownloadCoordinator
                 replyParameters: replyParameters,
                 cancellationToken: cancellationToken);
 
-            return;
+            return false;
         }
 
         if (!_queue.TryReserveSongs(songIdArray.Length))
@@ -111,7 +120,7 @@ public sealed class SongDownloadCoordinator
 
             await SendQueueLimitMessageAsync(chat, replyParameters, cancellationToken);
 
-            return;
+            return false;
         }
 
         var downloadId = Guid.NewGuid().ToString("N");
@@ -131,6 +140,10 @@ public sealed class SongDownloadCoordinator
             Store = store,
             ReplyParameters = replyParameters,
             IsBulk = isBulk,
+            BatchNotice = batchNotice,
+            RestoreMessage = restoreMessage,
+            SongOffsets = songOffsets,
+            ResumeOffset = initialResumeOffset,
             WasQueued = !startsImmediately,
             StatusKeyboard = statusKeyboard,
             OnCompleted = isBulk ? () => ReleaseBulk(user.Id) : null,
@@ -152,15 +165,16 @@ public sealed class SongDownloadCoordinator
 
         try
         {
-            var statusText = startsImmediately
-                ? TelegramMessages.DownloadingStatus
-                : string.Format(TelegramMessages.QueuePosition, request.Position, _queue.QueuedCount);
+            if (!startsImmediately)
+            {
+                var statusText = string.Format(TelegramMessages.QueuePosition, request.Position, _queue.QueuedCount);
 
-            statusMessageId = await _statusReporter.SendStatusAsync(
-                request,
-                statusText,
-                statusKeyboard,
-                cancellationToken);
+                statusMessageId = await _statusReporter.SendStatusAsync(request, statusText, statusKeyboard, existingStatusMessageId, cancellationToken);
+            }
+            else if (existingStatusMessageId is { } existingId)
+            {
+                statusMessageId = existingId;
+            }
         }
         finally
         {
@@ -171,6 +185,8 @@ public sealed class SongDownloadCoordinator
         _logger.LogInformation(
             "Enqueued {Kind} download {DownloadId} for user {UserId} ({Username}) in chat {ChatId}: {Count} songs, queued={WasQueued}, position={Position}, pendingSongs={PendingSongs}",
             isBulk ? "bulk" : "single", downloadId, user.Id, user.Username, chat.Id, songIdArray.Length, request.WasQueued, request.Position, _queue.PendingSongs);
+
+        return true;
     }
 
     private async Task SendQueueLimitMessageAsync(Chat chat, ReplyParameters? replyParameters, CancellationToken cancellationToken)
