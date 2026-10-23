@@ -276,7 +276,7 @@ namespace frytech.AppleMusicTools.Downloader.TelegramBot.Resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Songs processed: {0} of {1}{2}.
+        ///   Looks up a localized string similar to ⬇️ Downloading {0} of {1}{2}.
         ///
         ///{3}.
         /// </summary>

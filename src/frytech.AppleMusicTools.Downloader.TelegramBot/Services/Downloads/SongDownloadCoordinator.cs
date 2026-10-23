@@ -155,16 +155,16 @@ public sealed class SongDownloadCoordinator
 
         try
         {
-            var statusText = startsImmediately
-                ? TelegramMessages.DownloadingStatus
-                : string.Format(TelegramMessages.QueuePosition, request.Position, _queue.QueuedCount);
+            if (!startsImmediately)
+            {
+                var statusText = string.Format(TelegramMessages.QueuePosition, request.Position, _queue.QueuedCount);
 
-            statusMessageId = await _statusReporter.SendStatusAsync(
-                request,
-                statusText,
-                statusKeyboard,
-                existingStatusMessageId,
-                cancellationToken);
+                statusMessageId = await _statusReporter.SendStatusAsync(request, statusText, statusKeyboard, existingStatusMessageId, cancellationToken);
+            }
+            else if (existingStatusMessageId is { } existingId)
+            {
+                statusMessageId = existingId;
+            }
         }
         finally
         {

@@ -114,8 +114,11 @@ public sealed class DownloadProgressReporter
 
     private static string FormatGathering(int processed, int total, int failed)
     {
+        if (total <= 1)
+            return TelegramMessages.DownloadingStatus;
+
         var failedSuffix = failed > 0
-            ? string.Format(TelegramMessages.ProgressFailedSuffix, failed)
+            ? $" {string.Format(TelegramMessages.ProgressFailedSuffix, failed)}"
             : string.Empty;
 
         return string.Format(TelegramMessages.ProgressGathering, processed, total, failedSuffix, TelegramMessages.ProgressWarning);

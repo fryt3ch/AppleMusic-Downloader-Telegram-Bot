@@ -74,7 +74,9 @@
     <value>Something went wrong with your latest songs request!</value>
   </data>
   <data name="ProgressGathering" xml:space="preserve">
-    <value>Songs processed: {0} of {1}{2}.&#10;&#10;{3}</value>
+    <value>⬇️ Downloading {0} of {1}{2}.
+
+{3}</value>
   </data>
   <data name="ProgressFailedSuffix" xml:space="preserve">
     <value> ({0} failed)</value>

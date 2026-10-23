@@ -92,11 +92,6 @@ public sealed class SongDownloadWorker : BackgroundService
             return;
         }
 
-        if (statusMessageId is not null && request.WasQueued)
-        {
-            await _statusReporter.EditStatusAsync(request, TelegramMessages.DownloadingStatus, request.StatusKeyboard, CancellationToken.None);
-        }
-
         using var downloadCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, request.UserCancellation.Token);
 
         try
