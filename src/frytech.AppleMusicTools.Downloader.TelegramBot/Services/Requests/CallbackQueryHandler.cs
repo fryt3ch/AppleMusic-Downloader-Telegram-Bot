@@ -184,6 +184,7 @@ public sealed class CallbackQueryHandler
     private async Task<SongBatch> GetSongsBatchAsync(Func<int, int, Task<TrackPage>> tracksProvider, int offset)
     {
         var songIds = new List<string>(_maxSongsPerBatch);
+        var songOffsets = new List<int>(_maxSongsPerBatch);
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var nextOffset = offset;
         var hasMore = false;
@@ -204,7 +205,10 @@ public sealed class CallbackQueryHandler
                 nextOffset++;
 
                 if (track.ResourceType is ResourceType.Songs && seen.Add(track.Id))
+                {
                     songIds.Add(track.Id);
+                    songOffsets.Add(nextOffset);
+                }
             }
 
             hasMore = index < page.Items.Count || page.HasMore;
@@ -213,7 +217,7 @@ public sealed class CallbackQueryHandler
                 break;
         }
 
-        return new SongBatch(songIds, nextOffset, hasMore);
+        return new SongBatch(songIds, songOffsets, nextOffset, hasMore);
     }
 
     private async Task EnqueueBatchAsync(
@@ -261,18 +265,20 @@ public sealed class CallbackQueryHandler
         DownloadBatchMessage? restoreMessage = null;
 
         if (existingStatusMessageId is not null && sourceMessage.Text is { } restoreText)
-        {
-            var restoreMarkup = sourceMessage.ReplyMarkup
-                ?? new InlineKeyboardMarkup().AddButton(
-                    new InlineKeyboardButton(TelegramButtons.DownloadNextBatch)
-                    {
-                        CallbackData = nextCallback(currentOffset),
-                    });
+            restoreMessage = new DownloadBatchMessage(restoreText, nextCallback);
 
-            restoreMessage = new DownloadBatchMessage(restoreText, restoreMarkup);
-        }
-
-        await _downloadCoordinator.StartBulkAsync(chat, user, batch.SongIds, store, replyParameters, notice, restoreMessage, existingStatusMessageId, cancellationToken);
+        await _downloadCoordinator.StartBulkAsync(
+            chat,
+            user,
+            batch.SongIds,
+            batch.SongOffsets,
+            store,
+            replyParameters,
+            notice,
+            restoreMessage,
+            currentOffset,
+            existingStatusMessageId,
+            cancellationToken);
     }
 
     private async Task<bool> TryEditBatchMessageAsync(Chat chat, int messageId, string text, InlineKeyboardMarkup replyMarkup, CancellationToken cancellationToken)
@@ -295,5 +301,5 @@ public sealed class CallbackQueryHandler
         }
     }
 
-    private sealed record SongBatch(IReadOnlyList<string> SongIds, int NextOffset, bool HasMore);
+    private sealed record SongBatch(IReadOnlyList<string> SongIds, IReadOnlyList<int> SongOffsets, int NextOffset, bool HasMore);
 }

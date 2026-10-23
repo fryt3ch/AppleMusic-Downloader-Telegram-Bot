@@ -45,6 +45,8 @@ public class SongSender
         int? statusMessageId,
         InlineKeyboardMarkup? statusKeyboard,
         Action<int?>? statusMessageIdChanged,
+        IReadOnlyList<int>? songOffsets,
+        Action<int>? resumeOffsetChanged,
         CancellationToken downloadToken,
         CancellationToken sendToken)
     {
@@ -53,19 +55,22 @@ public class SongSender
         if (songIdsArray.Length == 0)
             return;
 
+        var offsets = songOffsets is not null && songOffsets.Count == songIdsArray.Length
+            ? songOffsets
+            : null;
+
         var pendingBatch = new List<CachedSong>();
         var failedSongs = new List<SongDownloadFailedException>();
-        var progress = new DownloadProgressReporter(
-            _client,
-            chat,
-            replyParameters,
-            statusMessageId,
-            statusKeyboard,
-            statusMessageIdChanged,
-            _progressUpdateInterval,
-            _logger);
+        int? partialResumeOffset = null;
+        var progress = new DownloadProgressReporter(_client, chat, replyParameters, statusMessageId, statusKeyboard, statusMessageIdChanged, _progressUpdateInterval, _logger);
 
         _logger.LogInformation("Starting download of {Count} songs in chat {ChatId}", songIdsArray.Length, chat.Id);
+
+        void UpdateResumeOffset(int index)
+        {
+            if (offsets is not null)
+                resumeOffsetChanged?.Invoke(offsets[index]);
+        }
 
         try
         {
@@ -134,19 +139,32 @@ public class SongSender
                 }
                 catch (OperationCanceledException)
                 {
+                    var lastCachedIndex = -1;
+
                     for (var i = 0; i < cachedResults.Length; i++)
                     {
                         if (cachedResults[i] is { } cachedSong)
+                        {
                             pendingBatch.Add(cachedSong);
+                            lastCachedIndex = i;
+                        }
                     }
+
+                    if (lastCachedIndex >= 0 && offsets is not null)
+                        partialResumeOffset = offsets[offset + lastCachedIndex];
 
                     throw;
                 }
 
+                var lastSentIndex = -1;
+
                 for (var i = 0; i < cachedResults.Length; i++)
                 {
                     if (cachedResults[i] is { } cachedSong)
+                    {
                         pendingBatch.Add(cachedSong);
+                        lastSentIndex = i;
+                    }
 
                     if (failures[i] is { } failure)
                         failedSongs.Add(failure);
@@ -154,6 +172,9 @@ public class SongSender
 
                 await SendBatchAsync(chat, pendingBatch, replyParameters, sendToken);
                 pendingBatch.Clear();
+
+                if (lastSentIndex >= 0)
+                    UpdateResumeOffset(offset + lastSentIndex);
 
                 if (offset + chunkLength < songIdsArray.Length)
                 {
@@ -185,8 +206,11 @@ public class SongSender
                 failedSongs.Count,
                 pendingBatch.Count);
 
-            await TrySendBatchAsync(chat, pendingBatch, replyParameters, sendToken);
+            var pendingSent = await TrySendBatchAsync(chat, pendingBatch, replyParameters, sendToken);
             pendingBatch.Clear();
+
+            if (pendingSent && partialResumeOffset is { } resumeOffset)
+                resumeOffsetChanged?.Invoke(resumeOffset);
 
             await progress.CompleteAsync(deleteMessage: false);
 
@@ -232,26 +256,31 @@ public class SongSender
             sendToken);
     }
 
-    private async Task TrySendBatchAsync(Chat chat, IReadOnlyCollection<CachedSong> batch, ReplyParameters? replyParameters, CancellationToken sendToken)
+    private async Task<bool> TrySendBatchAsync(Chat chat, IReadOnlyCollection<CachedSong> batch, ReplyParameters? replyParameters, CancellationToken sendToken)
     {
         if (batch.Count == 0)
         {
             _logger.LogDebug("No already-downloaded songs to send in chat {ChatId}", chat.Id);
 
-            return;
+            return true;
         }
 
         try
         {
             await SendBatchAsync(chat, batch, replyParameters, sendToken);
+
+            return true;
         }
         catch (OperationCanceledException)
         {
             // Host is stopping; best-effort.
+            return false;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to send partially downloaded songs in chat {ChatId}", chat.Id);
+
+            return false;
         }
     }
 

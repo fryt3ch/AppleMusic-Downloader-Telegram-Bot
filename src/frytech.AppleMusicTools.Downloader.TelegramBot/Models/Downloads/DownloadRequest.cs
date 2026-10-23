@@ -21,6 +21,10 @@ public sealed class DownloadRequest
 
     public DownloadBatchMessage? RestoreMessage { get; init; }
 
+    public IReadOnlyList<int> SongOffsets { get; init; } = [];
+
+    public int ResumeOffset { get; set; }
+
     public bool IsBulk { get; init; }
 
     public Action? OnCompleted { get; init; }

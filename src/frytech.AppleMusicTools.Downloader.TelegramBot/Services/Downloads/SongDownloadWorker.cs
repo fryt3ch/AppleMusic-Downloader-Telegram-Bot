@@ -108,6 +108,8 @@ public sealed class SongDownloadWorker : BackgroundService
                 statusMessageId,
                 request.StatusKeyboard,
                 id => request.StatusMessageId = id,
+                request.SongOffsets,
+                offset => request.ResumeOffset = offset,
                 downloadCts.Token,
                 stoppingToken);
 
@@ -123,7 +125,7 @@ public sealed class SongDownloadWorker : BackgroundService
             request.Status = DownloadStatus.Cancelled;
 
             if (request.RestoreMessage is { } restoreMessage)
-                await _statusReporter.RestoreBatchMessageAsync(request, restoreMessage, CancellationToken.None);
+                await _statusReporter.RestoreBatchMessageAsync(request, restoreMessage, request.ResumeOffset, CancellationToken.None);
             else
                 await _statusReporter.DeleteAsync(request, CancellationToken.None);
         }

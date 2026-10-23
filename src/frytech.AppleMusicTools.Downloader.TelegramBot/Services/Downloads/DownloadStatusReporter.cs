@@ -1,4 +1,5 @@
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Downloads;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Resources;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Telegram;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
@@ -117,35 +118,17 @@ public sealed class DownloadStatusReporter
         }
     }
 
-    public async Task RestoreBatchMessageAsync(DownloadRequest request, DownloadBatchMessage message, CancellationToken cancellationToken)
+    public Task RestoreBatchMessageAsync(DownloadRequest request, DownloadBatchMessage message, int resumeOffset, CancellationToken cancellationToken)
     {
-        if (request.StatusMessageId is not { } messageId)
-            return;
+        var markup = new InlineKeyboardMarkup().AddButton(
+            new InlineKeyboardButton(TelegramButtons.DownloadNextBatch)
+            {
+                CallbackData = message.BuildCallback(resumeOffset),
+            });
 
-        try
-        {
-            await TelegramApiRetry.ExecuteAsync(
-                requestToken => _client.EditMessageText(
-                    request.Chat.Id,
-                    messageId,
-                    message.Text,
-                    replyMarkup: message.ReplyMarkup,
-                    cancellationToken: requestToken),
-                _logger,
-                cancellationToken);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (ApiRequestException ex) when (ex.ErrorCode == 400)
-        {
-            _logger.LogDebug(ex, "Failed to restore batch message {MessageId} for {DownloadId}", messageId, request.DownloadId);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to restore batch message {MessageId} for {DownloadId}", messageId, request.DownloadId);
-        }
+        var notice = new DownloadBatchNotice(message.Text, markup, request.ReplyParameters, request.StatusMessageId);
+
+        return SendBatchNoticeAsync(request.Chat, notice, cancellationToken);
     }
 
     public async Task EditStatusAsync(DownloadRequest request, string text, InlineKeyboardMarkup? replyMarkup, CancellationToken cancellationToken)
