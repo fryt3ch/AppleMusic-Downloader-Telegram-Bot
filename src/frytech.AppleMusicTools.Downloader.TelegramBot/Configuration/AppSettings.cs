@@ -93,6 +93,12 @@ public class AppSettings
 
             [ConfigurationKeyName("MAX_PENDING_BULK_PER_USER")]
             public int MaxPendingBulkPerUser { get; init; } = 1;
+
+            [ConfigurationKeyName("MAX_SONGS_PER_BATCH")]
+            public int MaxSongsPerBatch { get; init; } = 250;
+
+            [ConfigurationKeyName("SONGS_PAGE_SIZE")]
+            public int SongsPageSize { get; init; } = 250;
         }
 
         public class DownloadsSectionValidator : AbstractValidator<DownloadsSection>
@@ -102,6 +108,12 @@ public class AppSettings
                 RuleFor(x => x.MaxConcurrency).InclusiveBetween(1, 16);
                 RuleFor(x => x.MaxPendingSongs).InclusiveBetween(1, 100000);
                 RuleFor(x => x.MaxPendingBulkPerUser).InclusiveBetween(1, 10);
+                RuleFor(x => x.MaxSongsPerBatch)
+                    .InclusiveBetween(1, 5000)
+                    .WithMessage("MAX_SONGS_PER_BATCH must be between 1 and 5000.");
+                RuleFor(x => x.SongsPageSize)
+                    .InclusiveBetween(1, 250)
+                    .WithMessage("SONGS_PAGE_SIZE must be between 1 and 250 because Apple Music returns at most 250 items per page.");
             }
         }
     }

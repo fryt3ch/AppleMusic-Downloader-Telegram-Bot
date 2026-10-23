@@ -86,6 +86,9 @@
     <value>Playlists</value>
   </data>
   <data name="GetAllSongs" xml:space="preserve">
-    <value>Get All Songs</value>
+    <value>Download songs (max {0})</value>
+  </data>
+  <data name="DownloadNextBatch" xml:space="preserve">
+    <value>Load next {0} songs</value>
   </data>
 </root>

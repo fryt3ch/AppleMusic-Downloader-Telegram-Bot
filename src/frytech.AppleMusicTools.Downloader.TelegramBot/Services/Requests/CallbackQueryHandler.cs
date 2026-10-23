@@ -1,4 +1,3 @@
-using frytech.AppleMusic.API.Models.Core;
 using frytech.AppleMusic.API.Models.Enums;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Requests;
@@ -9,19 +8,19 @@ using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests.Presentat
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.ReplyMarkups;
 
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests;
 
 public sealed class CallbackQueryHandler
 {
-    private const int BatchSongsMaxCount = 500;
-    private const int BatchSongsPageSize = 250;
-    
     private readonly ITelegramBotClient _client;
     private readonly AppleMusicCatalog _catalog;
     private readonly MusicPresenter _musicPresenter;
     private readonly SongDownloadCoordinator _downloadCoordinator;
     private readonly AppSettings _appSettings;
+    private readonly int _maxSongsPerBatch;
+    private readonly int _songsPageSize;
     private readonly ILogger<CallbackQueryHandler> _logger;
 
     public CallbackQueryHandler(
@@ -37,6 +36,8 @@ public sealed class CallbackQueryHandler
         _musicPresenter = musicPresenter;
         _downloadCoordinator = downloadCoordinator;
         _appSettings = appSettings.Value;
+        _maxSongsPerBatch = _appSettings.Telegram.Downloads.MaxSongsPerBatch;
+        _songsPageSize = _appSettings.Telegram.Downloads.SongsPageSize;
         _logger = logger;
     }
 
@@ -89,13 +90,35 @@ public sealed class CallbackQueryHandler
                     break;
 
                 case CallbackData.DownloadAlbum album:
-                    var albumSongIds = await GetAlbumSongIdsAsync(album.Id, store);
-                    await _downloadCoordinator.StartBulkAsync(message.Chat, callbackQuery.From, albumSongIds, store, replyParameters, cancellationToken);
+                    var albumBatch = await GetAlbumBatchAsync(album.Id, store, album.Offset);
+
+                    await EnqueueBatchAsync(
+                        message.Chat,
+                        callbackQuery.From,
+                        albumBatch,
+                        store,
+                        nextOffset => CallbackData.ForDownloadAlbum(album.Id, nextOffset),
+                        album.Offset,
+                        message,
+                        replyParameters,
+                        cancellationToken);
+
                     break;
 
                 case CallbackData.DownloadPlaylist playlist:
-                    var playlistSongIds = await GetPlaylistSongIdsAsync(playlist.Id, store);
-                    await _downloadCoordinator.StartBulkAsync(message.Chat, callbackQuery.From, playlistSongIds, store, replyParameters, cancellationToken);
+                    var playlistBatch = await GetPlaylistBatchAsync(playlist.Id, store, playlist.Offset);
+
+                    await EnqueueBatchAsync(
+                        message.Chat,
+                        callbackQuery.From,
+                        playlistBatch,
+                        store,
+                        nextOffset => CallbackData.ForDownloadPlaylist(playlist.Id, nextOffset),
+                        playlist.Offset,
+                        message,
+                        replyParameters,
+                        cancellationToken);
+
                     break;
 
                 default:
@@ -134,42 +157,124 @@ public sealed class CallbackQueryHandler
         }
     }
 
-    private Task<IReadOnlyCollection<string>> GetAlbumSongIdsAsync(string albumId, string store)
+    private Task<SongBatch> GetAlbumBatchAsync(string albumId, string store, int offset)
     {
-        return GetSongsIdsAsync((offset, limit) => _catalog.GetAlbumTracksAsync(offset, limit, albumId, store));
+        return GetSongsBatchAsync(
+            (pageOffset, limit) => _catalog.GetAlbumTracksPageAsync(pageOffset, limit, albumId, store),
+            offset);
     }
 
-    private Task<IReadOnlyCollection<string>> GetPlaylistSongIdsAsync(string playlistId, string store)
+    private Task<SongBatch> GetPlaylistBatchAsync(string playlistId, string store, int offset)
     {
-        return GetSongsIdsAsync((offset, limit) => _catalog.GetPlaylistTracksAsync(offset, limit, playlistId, store));
+        return GetSongsBatchAsync(
+            (pageOffset, limit) => _catalog.GetPlaylistTracksPageAsync(pageOffset, limit, playlistId, store),
+            offset);
     }
 
-    private async Task<IReadOnlyCollection<string>> GetSongsIdsAsync(Func<int, int, Task<IEnumerable<Resource>>> tracksProvider)
+    private async Task<SongBatch> GetSongsBatchAsync(Func<int, int, Task<TrackPage>> tracksProvider, int offset)
     {
-        var result = new HashSet<string>();
-        var offset = 0;
+        var songIds = new List<string>(_maxSongsPerBatch);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var nextOffset = offset;
+        var hasMore = false;
 
-        while (result.Count < BatchSongsMaxCount)
+        while (songIds.Count < _maxSongsPerBatch)
         {
-            var tracks = (await tracksProvider(offset, BatchSongsPageSize)).ToList();
+            var page = await tracksProvider(nextOffset, _songsPageSize);
 
-            foreach (var track in tracks)
-            {
-                if (track.ResourceType is not ResourceType.Songs)
-                    continue;
-                
-                result.Add(track.Id);
-
-                if (result.Count >= BatchSongsMaxCount)
-                    break;
-            }
-            
-            if (tracks.Count < BatchSongsPageSize)
+            if (page.Items.Count == 0)
                 break;
-            
-            offset += BatchSongsPageSize;
+
+            var index = 0;
+
+            for (; index < page.Items.Count && songIds.Count < _maxSongsPerBatch; index++)
+            {
+                var track = page.Items[index];
+
+                nextOffset++;
+
+                if (track.ResourceType is ResourceType.Songs && seen.Add(track.Id))
+                    songIds.Add(track.Id);
+            }
+
+            hasMore = index < page.Items.Count || page.HasMore;
+
+            if (!hasMore || songIds.Count >= _maxSongsPerBatch)
+                break;
         }
 
-        return result;
+        return new SongBatch(songIds, nextOffset, hasMore);
     }
+
+    private async Task EnqueueBatchAsync(
+        Chat chat,
+        User user,
+        SongBatch batch,
+        string store,
+        Func<int, string> nextCallback,
+        int currentOffset,
+        Message sourceMessage,
+        ReplyParameters replyParameters,
+        CancellationToken cancellationToken)
+    {
+        if (batch.SongIds.Count == 0)
+        {
+            var noSongsText = TelegramMessages.BatchNoSongs;
+
+            if (currentOffset > 0)
+            {
+                await TryEditBatchMessageAsync(chat, sourceMessage.MessageId, noSongsText, new InlineKeyboardMarkup(), cancellationToken);
+            }
+            else
+            {
+                await _client.SendMessage(chat.Id, noSongsText, replyParameters: replyParameters, cancellationToken: cancellationToken);
+            }
+
+            return;
+        }
+
+        var enqueued = await _downloadCoordinator.StartBulkAsync(chat, user, batch.SongIds, store, replyParameters, cancellationToken);
+
+        if (!enqueued)
+            return;
+
+        var text = string.Format(
+            batch.HasMore ? TelegramMessages.BatchQueuedMore : TelegramMessages.BatchQueuedAll,
+            batch.SongIds.Count);
+
+        var replyMarkup = batch.HasMore
+            ? new InlineKeyboardMarkup().AddButton(
+                new InlineKeyboardButton(string.Format(TelegramButtons.DownloadNextBatch, _maxSongsPerBatch))
+                {
+                    CallbackData = nextCallback(batch.NextOffset),
+                })
+            : new InlineKeyboardMarkup();
+
+        if (currentOffset > 0 && await TryEditBatchMessageAsync(chat, sourceMessage.MessageId, text, replyMarkup, cancellationToken))
+            return;
+
+        await _client.SendMessage(chat.Id, text, replyParameters: replyParameters, replyMarkup: replyMarkup, cancellationToken: cancellationToken);
+    }
+
+    private async Task<bool> TryEditBatchMessageAsync(Chat chat, int messageId, string text, InlineKeyboardMarkup replyMarkup, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _client.EditMessageText(chat.Id, messageId, text, replyMarkup: replyMarkup, cancellationToken: cancellationToken);
+
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to edit batch message {MessageId} in chat {ChatId}", messageId, chat.Id);
+
+            return false;
+        }
+    }
+
+    private sealed record SongBatch(IReadOnlyList<string> SongIds, int NextOffset, bool HasMore);
 }

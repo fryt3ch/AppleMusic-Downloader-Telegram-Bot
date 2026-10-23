@@ -39,13 +39,15 @@ public sealed class SongDownloadCoordinator
         return EnqueueAsync(chat, user, [songId], store, replyParameters, isBulk: false, cancellationToken);
     }
 
-    public Task StartBulkAsync(Chat chat, User user,
-        IReadOnlyCollection<string> songIds,
-        string store,
-        ReplyParameters? replyParameters,
-        CancellationToken cancellationToken)
+    public Task<bool> StartBulkAsync(Chat chat, User user, IReadOnlyCollection<string> songIds, string store, ReplyParameters? replyParameters, CancellationToken cancellationToken)
     {
-        return EnqueueAsync(chat, user, songIds, store, replyParameters, isBulk: true, cancellationToken);
+        var maxSongsPerBatch = _appSettings.Telegram.Downloads.MaxSongsPerBatch;
+
+        var limitedSongIds = songIds.Count > maxSongsPerBatch
+            ? songIds.Take(maxSongsPerBatch).ToArray()
+            : songIds;
+
+        return EnqueueAsync(chat, user, limitedSongIds, store, replyParameters, isBulk: true, cancellationToken);
     }
 
     public async Task<CancelDownloadResult> CancelAsync(string downloadId, long userId, CancellationToken cancellationToken)
@@ -79,12 +81,12 @@ public sealed class SongDownloadCoordinator
         }
     }
 
-    private async Task EnqueueAsync(Chat chat, User user, IReadOnlyCollection<string> songIds, string store, ReplyParameters? replyParameters, bool isBulk, CancellationToken cancellationToken)
+    private async Task<bool> EnqueueAsync(Chat chat, User user, IReadOnlyCollection<string> songIds, string store, ReplyParameters? replyParameters, bool isBulk, CancellationToken cancellationToken)
     {
         var songIdArray = songIds.ToArray();
 
         if (songIdArray.Length == 0)
-            return;
+            return false;
 
         var maxPendingBulkPerUser = _appSettings.Telegram.Downloads.MaxPendingBulkPerUser;
 
@@ -98,7 +100,7 @@ public sealed class SongDownloadCoordinator
                 replyParameters: replyParameters,
                 cancellationToken: cancellationToken);
 
-            return;
+            return false;
         }
 
         if (!_queue.TryReserveSongs(songIdArray.Length))
@@ -111,7 +113,7 @@ public sealed class SongDownloadCoordinator
 
             await SendQueueLimitMessageAsync(chat, replyParameters, cancellationToken);
 
-            return;
+            return false;
         }
 
         var downloadId = Guid.NewGuid().ToString("N");
@@ -171,6 +173,8 @@ public sealed class SongDownloadCoordinator
         _logger.LogInformation(
             "Enqueued {Kind} download {DownloadId} for user {UserId} ({Username}) in chat {ChatId}: {Count} songs, queued={WasQueued}, position={Position}, pendingSongs={PendingSongs}",
             isBulk ? "bulk" : "single", downloadId, user.Id, user.Username, chat.Id, songIdArray.Length, request.WasQueued, request.Position, _queue.PendingSongs);
+
+        return true;
     }
 
     private async Task SendQueueLimitMessageAsync(Chat chat, ReplyParameters? replyParameters, CancellationToken cancellationToken)

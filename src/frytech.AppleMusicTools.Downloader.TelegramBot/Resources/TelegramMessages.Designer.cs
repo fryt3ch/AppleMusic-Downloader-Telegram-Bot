@@ -97,4 +97,10 @@ internal static partial class TelegramMessages
     internal static string InlineAlbumDescription => ResourceManager.GetString(nameof(InlineAlbumDescription), resourceCulture)!;
 
     internal static string InlinePlaylistDescription => ResourceManager.GetString(nameof(InlinePlaylistDescription), resourceCulture)!;
+
+    internal static string BatchQueuedMore => ResourceManager.GetString(nameof(BatchQueuedMore), resourceCulture)!;
+
+    internal static string BatchQueuedAll => ResourceManager.GetString(nameof(BatchQueuedAll), resourceCulture)!;
+
+    internal static string BatchNoSongs => ResourceManager.GetString(nameof(BatchNoSongs), resourceCulture)!;
 }
