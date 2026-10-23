@@ -1,3 +1,4 @@
+using frytech.AppleMusic.API.Models.Core;
 using frytech.AppleMusic.API.Models.Enums;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Requests;
@@ -13,6 +14,9 @@ namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests;
 
 public sealed class CallbackQueryHandler
 {
+    private const int BatchSongsMaxCount = 500;
+    private const int BatchSongsPageSize = 250;
+    
     private readonly ITelegramBotClient _client;
     private readonly AppleMusicCatalog _catalog;
     private readonly MusicPresenter _musicPresenter;
@@ -109,11 +113,7 @@ public sealed class CallbackQueryHandler
 
             try
             {
-                await _client.SendMessage(
-                    message.Chat.Id,
-                    TelegramMessages.ItemLoadFailed,
-                    replyParameters: replyParameters,
-                    cancellationToken: cancellationToken);
+                await _client.SendMessage(message.Chat.Id, TelegramMessages.ItemLoadFailed, replyParameters: replyParameters, cancellationToken: cancellationToken);
             }
             catch (Exception sendEx)
             {
@@ -134,17 +134,42 @@ public sealed class CallbackQueryHandler
         }
     }
 
-    private async Task<IReadOnlyCollection<string>> GetAlbumSongIdsAsync(string albumId, string store)
+    private Task<IReadOnlyCollection<string>> GetAlbumSongIdsAsync(string albumId, string store)
     {
-        var tracks = await _catalog.GetAlbumTracksAsync(offset: 0, limit: 250, albumId, store);
-
-        return tracks.Where(resource => resource.ResourceType is ResourceType.Songs).Select(resource => resource.Id).ToArray();
+        return GetSongsIdsAsync((offset, limit) => _catalog.GetAlbumTracksAsync(offset, limit, albumId, store));
     }
 
-    private async Task<IReadOnlyCollection<string>> GetPlaylistSongIdsAsync(string playlistId, string store)
+    private Task<IReadOnlyCollection<string>> GetPlaylistSongIdsAsync(string playlistId, string store)
     {
-        var tracks = await _catalog.GetPlaylistTracksAsync(offset: 0, limit: 250, playlistId, store);
+        return GetSongsIdsAsync((offset, limit) => _catalog.GetPlaylistTracksAsync(offset, limit, playlistId, store));
+    }
 
-        return tracks.Where(resource => resource.ResourceType is ResourceType.Songs).Select(resource => resource.Id).ToArray();
+    private async Task<IReadOnlyCollection<string>> GetSongsIdsAsync(Func<int, int, Task<IEnumerable<Resource>>> tracksProvider)
+    {
+        var result = new HashSet<string>();
+        var offset = 0;
+
+        while (result.Count < BatchSongsMaxCount)
+        {
+            var tracks = (await tracksProvider(offset, BatchSongsPageSize)).ToList();
+
+            foreach (var track in tracks)
+            {
+                if (track.ResourceType is not ResourceType.Songs)
+                    continue;
+                
+                result.Add(track.Id);
+
+                if (result.Count >= BatchSongsMaxCount)
+                    break;
+            }
+            
+            if (tracks.Count < BatchSongsPageSize)
+                break;
+            
+            offset += BatchSongsPageSize;
+        }
+
+        return result;
     }
 }
