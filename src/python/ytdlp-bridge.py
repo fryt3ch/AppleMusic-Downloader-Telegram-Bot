@@ -1,11 +1,20 @@
+import contextlib
 import io
 import os
 import re
+import shutil
 import sys
+import tempfile
 from difflib import SequenceMatcher
 from pathlib import Path
 
 import yt_dlp
+from yt_dlp.cookies import YoutubeDLCookieJar
+
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 
 SEARCH_RESULT_LIMIT = 5
 
@@ -77,52 +86,217 @@ def print_error(error):
     print(message if message.startswith("ERROR:") else f"ERROR: {message}")
 
 
-def main():
-    if len(sys.argv) < 5:
-        print("ERROR: Missing arguments")
-        return
+def build_opts(cookie_source):
+    opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+        "js_runtimes": {"deno": {}},
+        "extractor_args": {
+            "youtube": {
+                # Avoid TVHTML5 clients (tv/tv_simply/tv_downgraded): they use a JS
+                # variant yt-dlp-ejs cannot solve yet, causing "The page needs to be
+                # reloaded" / UNPLAYABLE. See yt-dlp issue #17389.
+                "player_client": ["default", "web_embedded"],
+            },
+        },
+    }
 
-    artist = sys.argv[1]
-    title = sys.argv[2]
+    if cookie_source:
+        opts["cookiefile"] = cookie_source
+
+    return opts
+
+
+def _cookie_key(cookie):
+    return cookie.domain, cookie.path, cookie.name
+
+
+def _load_jar_from_text(text):
+    jar = YoutubeDLCookieJar()
+
+    if text:
+        jar.load(io.StringIO(text))
+
+    return jar
+
+
+def _load_jar_from_path(path):
+    jar = YoutubeDLCookieJar(path)
+    jar.load()
+
+    return jar
+
+
+@contextlib.contextmanager
+def cookie_lock(path):
+    lock_file = None
 
     try:
-        expected_duration = float(sys.argv[3])
-    except ValueError:
-        expected_duration = 0.0
+        lock_file = open(path, "a+")
+    except OSError as error:
+        print(f"WARNING: failed to open cookie lock file: {error}", file=sys.stderr)
+        yield
+        return
 
-    custom_output_path = Path(sys.argv[4]).resolve()
+    try:
+        if fcntl is not None:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+
+        yield
+    finally:
+        if fcntl is not None:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+        lock_file.close()
+
+
+def persist_cookie_updates(master_path, working_path, base_text):
+    if not os.path.isfile(working_path):
+        return
+
+    try:
+        base_jar = _load_jar_from_text(base_text)
+        ours_jar = _load_jar_from_path(working_path)
+    except Exception as error:
+        print(f"WARNING: failed to read cookie jars: {error}", file=sys.stderr)
+        return
+
+    base = {_cookie_key(cookie): cookie for cookie in base_jar}
+    ours = {_cookie_key(cookie): cookie for cookie in ours_jar}
+
+    with cookie_lock(f"{master_path}.lock"):
+        if not os.path.isfile(master_path):
+            return
+
+        try:
+            master_jar = _load_jar_from_path(master_path)
+        except Exception as error:
+            print(f"WARNING: failed to read master cookies: {error}", file=sys.stderr)
+            return
+
+        master = {_cookie_key(cookie): cookie for cookie in master_jar}
+
+        changed = []
+        conflicts = []
+
+        for key, our_cookie in ours.items():
+            base_cookie = base.get(key)
+            master_cookie = master.get(key)
+
+            if base_cookie is not None and our_cookie.value == base_cookie.value:
+                continue
+
+            if master_cookie is not None and our_cookie.value == master_cookie.value:
+                continue
+
+            if base_cookie is None:
+                if master_cookie is None:
+                    master_jar.set_cookie(our_cookie)
+                    changed.append(our_cookie.name)
+
+                continue
+
+            if master_cookie is None or master_cookie.value == base_cookie.value:
+                master_jar.set_cookie(our_cookie)
+                changed.append(our_cookie.name)
+            else:
+                conflicts.append(our_cookie.name)
+
+        if not changed:
+            return
+
+        master_dir = os.path.dirname(master_path) or "."
+        temp_path = None
+
+        try:
+            fd, temp_path = tempfile.mkstemp(prefix=".cookies-", suffix=".tmp", dir=master_dir)
+            os.close(fd)
+
+            master_jar.save(temp_path, ignore_discard=True, ignore_expires=True)
+
+            try:
+                shutil.copymode(master_path, temp_path)
+            except OSError:
+                pass
+
+            try:
+                os.replace(temp_path, master_path)
+                temp_path = None
+            except OSError as error:
+                print(f"WARNING: atomic cookie replace failed, writing in place: {error}", file=sys.stderr)
+                master_jar.save(master_path, ignore_discard=True, ignore_expires=True)
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except OSError:
+                    pass
+
+        print(f"COOKIE_UPDATED: {', '.join(sorted(set(changed)))}", file=sys.stderr)
+
+        if conflicts:
+            print(f"COOKIE_CONFLICT: {', '.join(sorted(set(conflicts)))}", file=sys.stderr)
+
+
+class CookieSession:
+    def __init__(self, master_path):
+        self.master_path = master_path
+        self.working_path = None
+        self.base_text = None
+        self.persist = False
+
+    def __enter__(self):
+        if not self.master_path or self.master_path == "-" or not os.path.isfile(self.master_path):
+            return None
+
+        try:
+            with open(self.master_path, encoding="utf-8") as cookies_file:
+                self.base_text = cookies_file.read()
+        except OSError as error:
+            print(f"WARNING: failed to read cookies: {error}", file=sys.stderr)
+            return None
+
+        if not self.base_text.strip():
+            return None
+
+        try:
+            fd, self.working_path = tempfile.mkstemp(prefix="ytdlp-cookies-", suffix=".txt")
+
+            with os.fdopen(fd, "w", encoding="utf-8") as cookies_file:
+                cookies_file.write(self.base_text)
+        except OSError as error:
+            print(f"WARNING: failed to create cookie working copy: {error}", file=sys.stderr)
+            self.working_path = None
+            return None
+
+        self.persist = True
+
+        return self.working_path
+
+    def __exit__(self, exc_type, exc, tb):
+        if self.persist and self.working_path:
+            try:
+                persist_cookie_updates(self.master_path, self.working_path, self.base_text)
+            except Exception as error:
+                print(f"WARNING: failed to persist cookies: {error}", file=sys.stderr)
+
+        if self.working_path:
+            try:
+                os.remove(self.working_path)
+            except OSError:
+                pass
+
+        return False
+
+
+def run_download(cookie_source, artist, title, expected_duration, custom_output_path):
     output_dir = str(custom_output_path.parent)
     output_stem = custom_output_path.stem
-
-    cookies_path = sys.argv[5].strip() if len(sys.argv) > 5 else ""
-    cookie_text = None
-    if cookies_path and cookies_path != "-" and os.path.isfile(cookies_path):
-        with open(cookies_path, encoding="utf-8") as cookies_file:
-            cookie_text = cookies_file.read()
-
-    def build_opts():
-        opts = {
-            "quiet": True,
-            "no_warnings": True,
-            "noplaylist": True,
-            "js_runtimes": {"deno": {}},
-            "extractor_args": {
-                "youtube": {
-                    # Avoid TVHTML5 clients (tv/tv_simply/tv_downgraded): they use a JS
-                    # variant yt-dlp-ejs cannot solve yet, causing "The page needs to be
-                    # reloaded" / UNPLAYABLE. See yt-dlp issue #17389.
-                    "player_client": ["default", "web_embedded"],
-                },
-            },
-        }
-        if cookie_text is not None:
-            opts["cookiefile"] = io.StringIO(cookie_text)
-        return opts
-
     query = f"{artist} - {title}".strip()
 
     try:
-        with yt_dlp.YoutubeDL(build_opts()) as ydl:
+        with yt_dlp.YoutubeDL(build_opts(cookie_source)) as ydl:
             search_result = ydl.extract_info(f"ytsearch{SEARCH_RESULT_LIMIT}:{query}", download=False)
     except Exception as e:
         print_error(e)
@@ -137,7 +311,7 @@ def main():
 
     video_url = best.get("webpage_url") or f"https://www.youtube.com/watch?v={best.get('id')}"
 
-    download_opts = build_opts()
+    download_opts = build_opts(cookie_source)
     download_opts.update({
         "format": "bestaudio/best",
         "outtmpl": str(custom_output_path.with_suffix("")),
@@ -167,6 +341,26 @@ def main():
         return
 
     print("SUCCESS")
+
+
+def main():
+    if len(sys.argv) < 5:
+        print("ERROR: Missing arguments")
+        return
+
+    artist = sys.argv[1]
+    title = sys.argv[2]
+
+    try:
+        expected_duration = float(sys.argv[3])
+    except ValueError:
+        expected_duration = 0.0
+
+    custom_output_path = Path(sys.argv[4]).resolve()
+    cookies_path = sys.argv[5].strip() if len(sys.argv) > 5 else ""
+
+    with CookieSession(cookies_path) as cookie_source:
+        run_download(cookie_source, artist, title, expected_duration, custom_output_path)
 
 
 if __name__ == "__main__":

@@ -147,6 +147,8 @@ The selected audio is transcoded to `.m4a`.
 
 If nothing matches, the track is skipped with a per-track notice and the rest of an album/playlist still downloads. Failed tracks are **not** cached, so they are retried on the next request.
 
+The bridge gives each yt-dlp process a temporary copy of the cookie jar and merges updated cookies back into `DOWNLOADER__YTDLP__COOKIES_PATH` under a file lock. This preserves YouTube session rotation while allowing parallel downloads. Use a dedicated account for these cookies and update the jar manually if the session eventually expires.
+
 ## Setup
 
 ### 1. Clone & Configure
