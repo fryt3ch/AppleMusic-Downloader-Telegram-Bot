@@ -61,7 +61,6 @@ public class SongSender
 
         var pendingBatch = new List<CachedSong>();
         var failedSongs = new List<SongDownloadFailedException>();
-        int? partialResumeOffset = null;
         var progress = new DownloadProgressReporter(_client, chat, replyParameters, statusMessageId, statusKeyboard, statusMessageIdChanged, _progressUpdateInterval, _logger);
 
         _logger.LogInformation("Starting download of {Count} songs in chat {ChatId}", songIdsArray.Length, chat.Id);
@@ -103,58 +102,37 @@ public class SongSender
                 var cachedResults = new CachedSong?[chunkLength];
                 var failures = new SongDownloadFailedException?[chunkLength];
 
-                try
-                {
-                    await Parallel.ForEachAsync(
-                        Enumerable.Range(0, chunkLength),
-                        new ParallelOptions
-                        {
-                            MaxDegreeOfParallelism = _providerConcurrency,
-                            CancellationToken = downloadToken,
-                        },
-                        async (index, cancellationToken) =>
-                        {
-                            var songId = chunk[index];
-
-                            _logger.LogDebug("Processing song {SongId}", songId);
-
-                            try
-                            {
-                                cachedResults[index] = await DownloadAndCacheAsync(songId, store, cancellationToken);
-                            }
-                            catch (SongDownloadFailedException ex)
-                            {
-                                _logger.LogWarning(ex, "Skipping song {SongId} because it could not be downloaded.", songId);
-
-                                failures[index] = ex;
-                            }
-
-                            Interlocked.Increment(ref processed);
-
-                            if (failures[index] is not null)
-                                Interlocked.Increment(ref failedCount);
-
-                            await ReportProgressAsync(songIdsArray.Length, sendToken);
-                        });
-                }
-                catch (OperationCanceledException)
-                {
-                    var lastCachedIndex = -1;
-
-                    for (var i = 0; i < cachedResults.Length; i++)
+                await Parallel.ForEachAsync(
+                    Enumerable.Range(0, chunkLength),
+                    new ParallelOptions
                     {
-                        if (cachedResults[i] is { } cachedSong)
+                        MaxDegreeOfParallelism = _providerConcurrency,
+                        CancellationToken = downloadToken,
+                    },
+                    async (index, cancellationToken) =>
+                    {
+                        var songId = chunk[index];
+
+                        _logger.LogDebug("Processing song {SongId}", songId);
+
+                        try
                         {
-                            pendingBatch.Add(cachedSong);
-                            lastCachedIndex = i;
+                            cachedResults[index] = await DownloadAndCacheAsync(songId, store, cancellationToken);
                         }
-                    }
+                        catch (SongDownloadFailedException ex)
+                        {
+                            _logger.LogWarning(ex, "Skipping song {SongId} because it could not be downloaded.", songId);
 
-                    if (lastCachedIndex >= 0 && offsets is not null)
-                        partialResumeOffset = offsets[offset + lastCachedIndex];
+                            failures[index] = ex;
+                        }
 
-                    throw;
-                }
+                        Interlocked.Increment(ref processed);
+
+                        if (failures[index] is not null)
+                            Interlocked.Increment(ref failedCount);
+
+                        await ReportProgressAsync(songIdsArray.Length, sendToken);
+                    });
 
                 var lastSentIndex = -1;
 
@@ -200,17 +178,7 @@ public class SongSender
         }
         catch (OperationCanceledException) when (!sendToken.IsCancellationRequested)
         {
-            _logger.LogInformation("Download in chat {ChatId} was cancelled: {Pending} downloaded, {Failed} failed; sending {Pending} already downloaded songs",
-                chat.Id,
-                pendingBatch.Count,
-                failedSongs.Count,
-                pendingBatch.Count);
-
-            var pendingSent = await TrySendBatchAsync(chat, pendingBatch, replyParameters, sendToken);
-            pendingBatch.Clear();
-
-            if (pendingSent && partialResumeOffset is { } resumeOffset)
-                resumeOffsetChanged?.Invoke(resumeOffset);
+            _logger.LogInformation("Download in chat {ChatId} was cancelled by the user; partial progress discarded, {Failed} failed", chat.Id, failedSongs.Count);
 
             await progress.CompleteAsync(deleteMessage: false);
 
@@ -254,34 +222,6 @@ public class SongSender
                 cancellationToken: requestToken),
             _logger,
             sendToken);
-    }
-
-    private async Task<bool> TrySendBatchAsync(Chat chat, IReadOnlyCollection<CachedSong> batch, ReplyParameters? replyParameters, CancellationToken sendToken)
-    {
-        if (batch.Count == 0)
-        {
-            _logger.LogDebug("No already-downloaded songs to send in chat {ChatId}", chat.Id);
-
-            return true;
-        }
-
-        try
-        {
-            await SendBatchAsync(chat, batch, replyParameters, sendToken);
-
-            return true;
-        }
-        catch (OperationCanceledException)
-        {
-            // Host is stopping; best-effort.
-            return false;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to send partially downloaded songs in chat {ChatId}", chat.Id);
-
-            return false;
-        }
     }
 
     private async Task SendFailedSongsReport(Chat chat, IReadOnlyCollection<SongDownloadFailedException> failedSongs, ReplyParameters? replyParameters, CancellationToken sendToken)

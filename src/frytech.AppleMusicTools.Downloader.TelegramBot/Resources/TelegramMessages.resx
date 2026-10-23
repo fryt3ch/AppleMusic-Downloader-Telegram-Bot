@@ -147,9 +147,6 @@
   <data name="BatchQueuedMore" xml:space="preserve">
     <value>Sent {0} songs. More tracks are available.</value>
   </data>
-  <data name="BatchQueuedAll" xml:space="preserve">
-    <value>Sent {0} songs. All available tracks are sent.</value>
-  </data>
   <data name="BatchNoSongs" xml:space="preserve">
     <value>No songs found in this item.</value>
   </data>

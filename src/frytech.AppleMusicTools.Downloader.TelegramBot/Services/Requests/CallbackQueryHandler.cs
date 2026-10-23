@@ -247,20 +247,21 @@ public sealed class CallbackQueryHandler
             return;
         }
 
-        var text = string.Format(
-            batch.HasMore ? TelegramMessages.BatchQueuedMore : TelegramMessages.BatchQueuedAll,
-            batch.SongIds.Count);
+        var existingStatusMessageId = currentOffset > 0 ? sourceMessage.MessageId : (int?)null;
 
-        var replyMarkup = batch.HasMore
-            ? new InlineKeyboardMarkup().AddButton(
+        DownloadBatchNotice? notice = null;
+
+        if (batch.HasMore)
+        {
+            var text = string.Format(TelegramMessages.BatchQueuedMore, batch.SongIds.Count);
+            var replyMarkup = new InlineKeyboardMarkup().AddButton(
                 new InlineKeyboardButton(TelegramButtons.DownloadNextBatch)
                 {
                     CallbackData = nextCallback(batch.NextOffset),
-                })
-            : new InlineKeyboardMarkup();
+                });
 
-        var existingStatusMessageId = currentOffset > 0 ? sourceMessage.MessageId : (int?)null;
-        var notice = new DownloadBatchNotice(text, replyMarkup, replyParameters, existingStatusMessageId);
+            notice = new DownloadBatchNotice(text, replyMarkup, replyParameters, existingStatusMessageId);
+        }
 
         DownloadBatchMessage? restoreMessage = null;
 

@@ -81,15 +81,6 @@ namespace frytech.AppleMusicTools.Downloader.TelegramBot.Resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Sent {0} songs. All available tracks are sent..
-        /// </summary>
-        internal static string BatchQueuedAll {
-            get {
-                return ResourceManager.GetString("BatchQueuedAll", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Sent {0} songs. More tracks are available..
         /// </summary>
         internal static string BatchQueuedMore {
