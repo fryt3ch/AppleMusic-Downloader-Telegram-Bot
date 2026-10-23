@@ -17,6 +17,8 @@ public sealed class DownloadRequest
 
     public ReplyParameters? ReplyParameters { get; init; }
 
+    public DownloadBatchNotice? BatchNotice { get; init; }
+
     public bool IsBulk { get; init; }
 
     public Action? OnCompleted { get; init; }

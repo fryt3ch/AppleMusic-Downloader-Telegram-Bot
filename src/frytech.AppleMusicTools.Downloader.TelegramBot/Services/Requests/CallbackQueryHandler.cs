@@ -1,5 +1,6 @@
 using frytech.AppleMusic.API.Models.Enums;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Downloads;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Requests;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Resources;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Catalog;
@@ -233,11 +234,6 @@ public sealed class CallbackQueryHandler
             return;
         }
 
-        var enqueued = await _downloadCoordinator.StartBulkAsync(chat, user, batch.SongIds, store, replyParameters, cancellationToken);
-
-        if (!enqueued)
-            return;
-
         var text = string.Format(
             batch.HasMore ? TelegramMessages.BatchQueuedMore : TelegramMessages.BatchQueuedAll,
             batch.SongIds.Count);
@@ -250,10 +246,10 @@ public sealed class CallbackQueryHandler
                 })
             : new InlineKeyboardMarkup();
 
-        if (currentOffset > 0 && await TryEditBatchMessageAsync(chat, sourceMessage.MessageId, text, replyMarkup, cancellationToken))
-            return;
+        var isNextBatch = currentOffset > 0;
+        var notice = new DownloadBatchNotice(text, replyMarkup, isNextBatch ? null : replyParameters, isNextBatch ? sourceMessage.MessageId : null);
 
-        await _client.SendMessage(chat.Id, text, replyParameters: replyParameters, replyMarkup: replyMarkup, cancellationToken: cancellationToken);
+        await _downloadCoordinator.StartBulkAsync(chat, user, batch.SongIds, store, replyParameters, notice, cancellationToken);
     }
 
     private async Task<bool> TryEditBatchMessageAsync(Chat chat, int messageId, string text, InlineKeyboardMarkup replyMarkup, CancellationToken cancellationToken)

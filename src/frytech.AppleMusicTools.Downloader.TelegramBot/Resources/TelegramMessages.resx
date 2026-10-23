@@ -143,10 +143,10 @@
     <value>{0}&#10;{1}</value>
   </data>
   <data name="BatchQueuedMore" xml:space="preserve">
-    <value>Queued {0} songs. More tracks are available.</value>
+    <value>Sent {0} songs. More tracks are available.</value>
   </data>
   <data name="BatchQueuedAll" xml:space="preserve">
-    <value>Queued {0} songs. All available tracks are queued.</value>
+    <value>Sent {0} songs. All available tracks are sent.</value>
   </data>
   <data name="BatchNoSongs" xml:space="preserve">
     <value>No songs found in this item.</value>

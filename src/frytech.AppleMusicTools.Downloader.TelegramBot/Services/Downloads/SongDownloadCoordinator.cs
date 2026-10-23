@@ -36,10 +36,10 @@ public sealed class SongDownloadCoordinator
 
     public Task StartSingleAsync(Chat chat, User user, string songId, string store, ReplyParameters? replyParameters, CancellationToken cancellationToken)
     {
-        return EnqueueAsync(chat, user, [songId], store, replyParameters, isBulk: false, cancellationToken);
+        return EnqueueAsync(chat, user, [songId], store, replyParameters, isBulk: false, batchNotice: null, cancellationToken);
     }
 
-    public Task<bool> StartBulkAsync(Chat chat, User user, IReadOnlyCollection<string> songIds, string store, ReplyParameters? replyParameters, CancellationToken cancellationToken)
+    public Task<bool> StartBulkAsync(Chat chat, User user, IReadOnlyCollection<string> songIds, string store, ReplyParameters? replyParameters, DownloadBatchNotice? batchNotice, CancellationToken cancellationToken)
     {
         var maxSongsPerBatch = _appSettings.Telegram.Downloads.MaxSongsPerBatch;
 
@@ -47,7 +47,7 @@ public sealed class SongDownloadCoordinator
             ? songIds.Take(maxSongsPerBatch).ToArray()
             : songIds;
 
-        return EnqueueAsync(chat, user, limitedSongIds, store, replyParameters, isBulk: true, cancellationToken);
+        return EnqueueAsync(chat, user, limitedSongIds, store, replyParameters, isBulk: true, batchNotice, cancellationToken);
     }
 
     public async Task<CancelDownloadResult> CancelAsync(string downloadId, long userId, CancellationToken cancellationToken)
@@ -81,7 +81,7 @@ public sealed class SongDownloadCoordinator
         }
     }
 
-    private async Task<bool> EnqueueAsync(Chat chat, User user, IReadOnlyCollection<string> songIds, string store, ReplyParameters? replyParameters, bool isBulk, CancellationToken cancellationToken)
+    private async Task<bool> EnqueueAsync(Chat chat, User user, IReadOnlyCollection<string> songIds, string store, ReplyParameters? replyParameters, bool isBulk, DownloadBatchNotice? batchNotice, CancellationToken cancellationToken)
     {
         var songIdArray = songIds.ToArray();
 
@@ -133,6 +133,7 @@ public sealed class SongDownloadCoordinator
             Store = store,
             ReplyParameters = replyParameters,
             IsBulk = isBulk,
+            BatchNotice = batchNotice,
             WasQueued = !startsImmediately,
             StatusKeyboard = statusKeyboard,
             OnCompleted = isBulk ? () => ReleaseBulk(user.Id) : null,

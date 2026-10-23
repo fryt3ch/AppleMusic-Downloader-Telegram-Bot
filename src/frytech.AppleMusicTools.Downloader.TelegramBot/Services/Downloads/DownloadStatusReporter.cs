@@ -1,6 +1,7 @@
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Downloads;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Telegram;
 using Telegram.Bot;
+using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Downloads;
@@ -41,6 +42,47 @@ public sealed class DownloadStatusReporter
         {
             _logger.LogWarning(ex, "Failed to send download status message for {DownloadId}", request.DownloadId);
             return null;
+        }
+    }
+
+    public async Task SendBatchNoticeAsync(Chat chat, DownloadBatchNotice notice, CancellationToken cancellationToken)
+    {
+        if (notice.ReplaceMessageId is { } messageId)
+        {
+            try
+            {
+                await _client.DeleteMessage(chat.Id, messageId, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to delete the previous batch notice {MessageId} in chat {ChatId}", messageId, chat.Id);
+            }
+        }
+
+        try
+        {
+            await TelegramApiRetry.ExecuteAsync(
+                requestToken => _client.SendMessage(
+                    chat.Id,
+                    notice.Text,
+                    replyParameters: notice.ReplyParameters,
+                    disableNotification: true,
+                    replyMarkup: notice.ReplyMarkup,
+                    cancellationToken: requestToken),
+                _logger,
+                cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send the batch notice in chat {ChatId}", chat.Id);
         }
     }
 

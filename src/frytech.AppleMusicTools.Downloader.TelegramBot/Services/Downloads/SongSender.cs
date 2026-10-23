@@ -44,6 +44,7 @@ public class SongSender
         ReplyParameters? replyParameters,
         int? statusMessageId,
         InlineKeyboardMarkup? statusKeyboard,
+        Action<int?>? statusMessageIdChanged,
         CancellationToken downloadToken,
         CancellationToken sendToken)
     {
@@ -60,6 +61,7 @@ public class SongSender
             replyParameters,
             statusMessageId,
             statusKeyboard,
+            statusMessageIdChanged,
             _progressUpdateInterval,
             _logger);
 
@@ -152,6 +154,20 @@ public class SongSender
 
                 await SendBatchAsync(chat, pendingBatch, replyParameters, sendToken);
                 pendingBatch.Clear();
+
+                if (offset + chunkLength < songIdsArray.Length)
+                {
+                    await _progressGate.WaitAsync(sendToken);
+
+                    try
+                    {
+                        await progress.MoveToBottomAsync(sendToken);
+                    }
+                    finally
+                    {
+                        _progressGate.Release();
+                    }
+                }
             }
 
             await progress.CompleteAsync(deleteMessage: true);

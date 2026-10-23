@@ -112,8 +112,12 @@ public sealed class SongDownloadWorker : BackgroundService
                 request.ReplyParameters,
                 statusMessageId,
                 request.StatusKeyboard,
+                id => request.StatusMessageId = id,
                 downloadCts.Token,
                 stoppingToken);
+
+            if (request.BatchNotice is { } batchNotice)
+                await _statusReporter.SendBatchNoticeAsync(request.Chat, batchNotice, CancellationToken.None);
 
             request.Status = DownloadStatus.Completed;
         }
