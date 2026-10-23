@@ -122,7 +122,10 @@ public sealed class SongDownloadWorker : BackgroundService
 
             request.Status = DownloadStatus.Cancelled;
 
-            await _statusReporter.DeleteAsync(request, CancellationToken.None);
+            if (request.RestoreMessage is { } restoreMessage)
+                await _statusReporter.RestoreBatchMessageAsync(request, restoreMessage, CancellationToken.None);
+            else
+                await _statusReporter.DeleteAsync(request, CancellationToken.None);
         }
         catch (OperationCanceledException)
         {

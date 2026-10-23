@@ -258,7 +258,21 @@ public sealed class CallbackQueryHandler
         var existingStatusMessageId = currentOffset > 0 ? sourceMessage.MessageId : (int?)null;
         var notice = new DownloadBatchNotice(text, replyMarkup, replyParameters, existingStatusMessageId);
 
-        await _downloadCoordinator.StartBulkAsync(chat, user, batch.SongIds, store, replyParameters, notice, existingStatusMessageId, cancellationToken);
+        DownloadBatchMessage? restoreMessage = null;
+
+        if (existingStatusMessageId is not null && sourceMessage.Text is { } restoreText)
+        {
+            var restoreMarkup = sourceMessage.ReplyMarkup
+                ?? new InlineKeyboardMarkup().AddButton(
+                    new InlineKeyboardButton(TelegramButtons.DownloadNextBatch)
+                    {
+                        CallbackData = nextCallback(currentOffset),
+                    });
+
+            restoreMessage = new DownloadBatchMessage(restoreText, restoreMarkup);
+        }
+
+        await _downloadCoordinator.StartBulkAsync(chat, user, batch.SongIds, store, replyParameters, notice, restoreMessage, existingStatusMessageId, cancellationToken);
     }
 
     private async Task<bool> TryEditBatchMessageAsync(Chat chat, int messageId, string text, InlineKeyboardMarkup replyMarkup, CancellationToken cancellationToken)

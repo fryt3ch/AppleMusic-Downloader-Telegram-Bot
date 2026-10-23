@@ -19,6 +19,8 @@ public sealed class DownloadRequest
 
     public DownloadBatchNotice? BatchNotice { get; init; }
 
+    public DownloadBatchMessage? RestoreMessage { get; init; }
+
     public bool IsBulk { get; init; }
 
     public Action? OnCompleted { get; init; }

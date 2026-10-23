@@ -117,6 +117,37 @@ public sealed class DownloadStatusReporter
         }
     }
 
+    public async Task RestoreBatchMessageAsync(DownloadRequest request, DownloadBatchMessage message, CancellationToken cancellationToken)
+    {
+        if (request.StatusMessageId is not { } messageId)
+            return;
+
+        try
+        {
+            await TelegramApiRetry.ExecuteAsync(
+                requestToken => _client.EditMessageText(
+                    request.Chat.Id,
+                    messageId,
+                    message.Text,
+                    replyMarkup: message.ReplyMarkup,
+                    cancellationToken: requestToken),
+                _logger,
+                cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (ApiRequestException ex) when (ex.ErrorCode == 400)
+        {
+            _logger.LogDebug(ex, "Failed to restore batch message {MessageId} for {DownloadId}", messageId, request.DownloadId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to restore batch message {MessageId} for {DownloadId}", messageId, request.DownloadId);
+        }
+    }
+
     public async Task EditStatusAsync(DownloadRequest request, string text, InlineKeyboardMarkup? replyMarkup, CancellationToken cancellationToken)
     {
         if (request.StatusMessageId is not { } messageId)
