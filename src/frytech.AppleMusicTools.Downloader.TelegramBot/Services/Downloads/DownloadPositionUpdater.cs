@@ -1,4 +1,5 @@
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Downloads;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Resources;
 
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Downloads;
 
@@ -51,7 +52,7 @@ public sealed class DownloadPositionUpdater : BackgroundService
                         continue;
                     }
 
-                    var text = $"⏳ Queued: position {request.Position} of {total}";
+                    var text = string.Format(TelegramMessages.QueuePosition, request.Position, total);
 
                     await _statusReporter.EditStatusAsync(request, text, request.StatusKeyboard, stoppingToken);
 

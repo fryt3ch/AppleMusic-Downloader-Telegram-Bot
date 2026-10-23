@@ -62,20 +62,20 @@ public sealed class SongDownloadCoordinator
 
                 _logger.LogInformation("Queued download {DownloadId} was cancelled by user {UserId}", downloadId, userId);
 
-                return new CancelDownloadResult(true, "Cancelled");
+                return new CancelDownloadResult(true, TelegramMessages.CancelResultCancelled);
 
             case CancelDownloadOutcome.CancellingProcessing:
                 _logger.LogInformation("Processing download {DownloadId} is being cancelled by user {UserId}", downloadId, userId);
 
-                return new CancelDownloadResult(true, "Cancelling...");
+                return new CancelDownloadResult(true, TelegramMessages.CancelResultCancelling);
 
             case CancelDownloadOutcome.NotOwner:
-                return new CancelDownloadResult(false, "Not your download");
+                return new CancelDownloadResult(false, TelegramMessages.CancelResultNotOwner);
 
             case CancelDownloadOutcome.NotFound:
             case CancelDownloadOutcome.AlreadyFinished:
             default:
-                return new CancelDownloadResult(false, "Already finished");
+                return new CancelDownloadResult(false, TelegramMessages.CancelResultAlreadyFinished);
         }
     }
 
@@ -117,7 +117,7 @@ public sealed class SongDownloadCoordinator
         var downloadId = Guid.NewGuid().ToString("N");
         var startsImmediately = _queue.CanStartImmediately();
         var statusKeyboard = new InlineKeyboardMarkup()
-            .AddButton(new InlineKeyboardButton("Cancel")
+            .AddButton(new InlineKeyboardButton(TelegramButtons.Cancel)
             {
                 CallbackData = CallbackData.ForCancelDownload(downloadId),
             });
@@ -153,8 +153,8 @@ public sealed class SongDownloadCoordinator
         try
         {
             var statusText = startsImmediately
-                ? "⬇️ Downloading…"
-                : $"⏳ Queued: position {request.Position} of {_queue.QueuedCount}";
+                ? TelegramMessages.DownloadingStatus
+                : string.Format(TelegramMessages.QueuePosition, request.Position, _queue.QueuedCount);
 
             statusMessageId = await _statusReporter.SendStatusAsync(
                 request,
@@ -179,7 +179,7 @@ public sealed class SongDownloadCoordinator
         {
             await _client.SendMessage(
                 chat.Id,
-                "Too many songs are already queued. Please try again later.",
+                TelegramMessages.QueueLimitReached,
                 replyParameters: replyParameters,
                 cancellationToken: cancellationToken);
         }

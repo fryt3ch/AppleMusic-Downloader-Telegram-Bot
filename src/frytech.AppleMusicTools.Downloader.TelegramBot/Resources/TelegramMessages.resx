@@ -59,7 +59,7 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="Start" xml:space="preserve">
-    <value>Press the desired button below and append some text to make a search query.&#10;&#10;Example (All): @AppleTools_bot The Beatles&#10;Example (Song): @AppleTools_bot song: Moonlight Shadow&#10;&#10;If you press 'Search', you'll get everything - songs, artists, albums, playlists.</value>
+    <value>Press the desired button below and append some text to make a search query.&#10;&#10;Example (All): {0} The Beatles&#10;Example (Song): {0} song: Moonlight Shadow&#10;&#10;If you press '{1}', you'll get everything - songs, artists, albums, playlists.</value>
   </data>
   <data name="WrongUrlFormat" xml:space="preserve">
     <value>Wrong URL format!</value>
@@ -90,5 +90,56 @@
   </data>
   <data name="FailedSongLine" xml:space="preserve">
     <value>• {0} — {1}</value>
+  </data>
+  <data name="DownloadingStatus" xml:space="preserve">
+    <value>⬇️ Downloading…</value>
+  </data>
+  <data name="QueuePosition" xml:space="preserve">
+    <value>⏳ Queued: position {0} of {1}</value>
+  </data>
+  <data name="FailedStatus" xml:space="preserve">
+    <value>❌ Failed</value>
+  </data>
+  <data name="QueueLimitReached" xml:space="preserve">
+    <value>Too many songs are already queued. Please try again later.</value>
+  </data>
+  <data name="ItemLoadFailed" xml:space="preserve">
+    <value>Couldn't load this item. Please try again later.</value>
+  </data>
+  <data name="CancelResultCancelled" xml:space="preserve">
+    <value>Cancelled</value>
+  </data>
+  <data name="CancelResultCancelling" xml:space="preserve">
+    <value>Cancelling...</value>
+  </data>
+  <data name="CancelResultNotOwner" xml:space="preserve">
+    <value>Not your download</value>
+  </data>
+  <data name="CancelResultAlreadyFinished" xml:space="preserve">
+    <value>Already finished</value>
+  </data>
+  <data name="AlbumCaption" xml:space="preserve">
+    <value>{0} - {1}&#10;&#10;{2} tracks&#10;{3}</value>
+  </data>
+  <data name="PlaylistCaption" xml:space="preserve">
+    <value>{0}&#10;&#10;Curator: {1}</value>
+  </data>
+  <data name="InlineMusicVideoDescription" xml:space="preserve">
+    <value>{0}&#10;Music Videos Are Not Available!</value>
+  </data>
+  <data name="InlineNotReleased" xml:space="preserve">
+    <value>Not Released</value>
+  </data>
+  <data name="InlineDuration" xml:space="preserve">
+    <value>{0} min. {1} sec.</value>
+  </data>
+  <data name="InlineTrackDescription" xml:space="preserve">
+    <value>{0}&#10;{1}</value>
+  </data>
+  <data name="InlineAlbumDescription" xml:space="preserve">
+    <value>{0}&#10;{1} | {2} tracks</value>
+  </data>
+  <data name="InlinePlaylistDescription" xml:space="preserve">
+    <value>{0}&#10;{1}</value>
   </data>
 </root>

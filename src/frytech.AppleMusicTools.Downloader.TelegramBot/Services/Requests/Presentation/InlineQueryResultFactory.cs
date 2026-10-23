@@ -4,6 +4,7 @@ using frytech.AppleMusic.API.Models.Core;
 using frytech.AppleMusic.API.Models.Enums;
 using frytech.AppleMusic.API.Models.Resources;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Resources;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Catalog;
 using Microsoft.Extensions.Options;
 using Telegram.Bot.Types.InlineQueryResults;
@@ -37,19 +38,31 @@ public class InlineQueryResultFactory
 
         if (attributes is ITrackAttributes trackAttributes)
         {
+            var duration = trackAttributes.Duration == TimeSpan.Zero
+                ? TelegramMessages.InlineNotReleased
+                : string.Format(
+                    TelegramMessages.InlineDuration,
+                    trackAttributes.Duration.Minutes,
+                    trackAttributes.Duration.Seconds);
+
             article.Description = resource.ResourceType is ResourceType.MusicVideos
-                ? $"{trackAttributes.ArtistName}\nMusic Videos Are Not Available!"
-                : $"{trackAttributes.ArtistName}\n{(trackAttributes.Duration == TimeSpan.Zero
-                    ? "Not Released"
-                    : $"{trackAttributes.Duration.Minutes} min. {trackAttributes.Duration.Seconds} sec.")}";
+                ? string.Format(TelegramMessages.InlineMusicVideoDescription, trackAttributes.ArtistName)
+                : string.Format(TelegramMessages.InlineTrackDescription, trackAttributes.ArtistName, duration);
         }
         else
             article.Description = resource switch
             {
-                Album album => $"{album.Attributes.ArtistName}\n{album.Attributes.ReleaseDate} | {album.Attributes.TrackCount} tracks",
-                Artist artist => $"{string.Join(", ", artist.Attributes.GenreNames ?? [])}",
-                Playlist playlist => $"{playlist.Attributes.CuratorName}\n{playlist.Attributes.LastModifiedDate:yyyy.MM.dd}",
-                
+                Album album => string.Format(
+                    TelegramMessages.InlineAlbumDescription,
+                    album.Attributes.ArtistName,
+                    album.Attributes.ReleaseDate,
+                    album.Attributes.TrackCount),
+                Artist artist => string.Join(", ", artist.Attributes.GenreNames ?? []),
+                Playlist playlist => string.Format(
+                    TelegramMessages.InlinePlaylistDescription,
+                    playlist.Attributes.CuratorName,
+                    playlist.Attributes.LastModifiedDate.ToString("yyyy.MM.dd")),
+
                 _ => article.Description
             };
 

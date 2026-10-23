@@ -94,7 +94,7 @@ public sealed class SongDownloadWorker : BackgroundService
 
         if (statusMessageId is not null && request.WasQueued)
         {
-            await _statusReporter.EditStatusAsync(request, "⬇️ Downloading…", request.StatusKeyboard, CancellationToken.None);
+            await _statusReporter.EditStatusAsync(request, TelegramMessages.DownloadingStatus, request.StatusKeyboard, CancellationToken.None);
         }
 
         using var downloadCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, request.UserCancellation.Token);
@@ -137,7 +137,7 @@ public sealed class SongDownloadWorker : BackgroundService
 
             request.Status = DownloadStatus.Failed;
 
-            await _statusReporter.FinalizeAsync(request, "❌ Failed", CancellationToken.None);
+            await _statusReporter.FinalizeAsync(request, TelegramMessages.FailedStatus, CancellationToken.None);
 
             try
             {

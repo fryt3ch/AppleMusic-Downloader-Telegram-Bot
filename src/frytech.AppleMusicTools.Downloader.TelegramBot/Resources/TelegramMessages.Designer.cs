@@ -63,4 +63,38 @@ internal static partial class TelegramMessages
     internal static string FailedSongsHeader => ResourceManager.GetString(nameof(FailedSongsHeader), resourceCulture)!;
 
     internal static string FailedSongLine => ResourceManager.GetString(nameof(FailedSongLine), resourceCulture)!;
+
+    internal static string DownloadingStatus => ResourceManager.GetString(nameof(DownloadingStatus), resourceCulture)!;
+
+    internal static string QueuePosition => ResourceManager.GetString(nameof(QueuePosition), resourceCulture)!;
+
+    internal static string FailedStatus => ResourceManager.GetString(nameof(FailedStatus), resourceCulture)!;
+
+    internal static string QueueLimitReached => ResourceManager.GetString(nameof(QueueLimitReached), resourceCulture)!;
+
+    internal static string ItemLoadFailed => ResourceManager.GetString(nameof(ItemLoadFailed), resourceCulture)!;
+
+    internal static string CancelResultCancelled => ResourceManager.GetString(nameof(CancelResultCancelled), resourceCulture)!;
+
+    internal static string CancelResultCancelling => ResourceManager.GetString(nameof(CancelResultCancelling), resourceCulture)!;
+
+    internal static string CancelResultNotOwner => ResourceManager.GetString(nameof(CancelResultNotOwner), resourceCulture)!;
+
+    internal static string CancelResultAlreadyFinished => ResourceManager.GetString(nameof(CancelResultAlreadyFinished), resourceCulture)!;
+
+    internal static string AlbumCaption => ResourceManager.GetString(nameof(AlbumCaption), resourceCulture)!;
+
+    internal static string PlaylistCaption => ResourceManager.GetString(nameof(PlaylistCaption), resourceCulture)!;
+
+    internal static string InlineMusicVideoDescription => ResourceManager.GetString(nameof(InlineMusicVideoDescription), resourceCulture)!;
+
+    internal static string InlineNotReleased => ResourceManager.GetString(nameof(InlineNotReleased), resourceCulture)!;
+
+    internal static string InlineDuration => ResourceManager.GetString(nameof(InlineDuration), resourceCulture)!;
+
+    internal static string InlineTrackDescription => ResourceManager.GetString(nameof(InlineTrackDescription), resourceCulture)!;
+
+    internal static string InlineAlbumDescription => ResourceManager.GetString(nameof(InlineAlbumDescription), resourceCulture)!;
+
+    internal static string InlinePlaylistDescription => ResourceManager.GetString(nameof(InlinePlaylistDescription), resourceCulture)!;
 }

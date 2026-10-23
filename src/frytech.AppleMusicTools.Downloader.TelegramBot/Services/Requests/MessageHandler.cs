@@ -61,17 +61,27 @@ public sealed class MessageHandler
         _logger.LogInformation("Received /start command in chat {ChatId}", message.Chat.Id);
 
         var replyMarkup = new InlineKeyboardMarkup()
-            .AddButton(new InlineKeyboardButton("Search") { SwitchInlineQueryCurrentChat = " " })
-            .AddButton(new InlineKeyboardButton("Song") { SwitchInlineQueryCurrentChat = $"{InlineQueryParser.SongKeyword}: " })
-            .AddButton(new InlineKeyboardButton("Artist") { SwitchInlineQueryCurrentChat = $"{InlineQueryParser.ArtistKeyword}: " })
-            .AddButton(new InlineKeyboardButton("Album") { SwitchInlineQueryCurrentChat = $"{InlineQueryParser.AlbumKeyword}: " })
-            .AddButton(new InlineKeyboardButton("Playlist") { SwitchInlineQueryCurrentChat = $"{InlineQueryParser.PlaylistKeyword}: " });
+            .AddButton(new InlineKeyboardButton(TelegramButtons.Search) { SwitchInlineQueryCurrentChat = " " })
+            .AddButton(new InlineKeyboardButton(TelegramButtons.Song) { SwitchInlineQueryCurrentChat = $"{InlineQueryParser.SongKeyword}: " })
+            .AddButton(new InlineKeyboardButton(TelegramButtons.Artist) { SwitchInlineQueryCurrentChat = $"{InlineQueryParser.ArtistKeyword}: " })
+            .AddButton(new InlineKeyboardButton(TelegramButtons.Album) { SwitchInlineQueryCurrentChat = $"{InlineQueryParser.AlbumKeyword}: " })
+            .AddButton(new InlineKeyboardButton(TelegramButtons.Playlist) { SwitchInlineQueryCurrentChat = $"{InlineQueryParser.PlaylistKeyword}: " });
+
+        var botUsername = await GetBotMentionAsync(cancellationToken);
+        var startText = string.Format(TelegramMessages.Start, botUsername, TelegramButtons.Search);
 
         await _client.SendMessage(
             message.Chat.Id,
-            TelegramMessages.Start,
+            startText,
             replyMarkup: replyMarkup,
             cancellationToken: cancellationToken);
+    }
+
+    private async Task<string> GetBotMentionAsync(CancellationToken cancellationToken)
+    {
+        var me = await _client.GetMe(cancellationToken);
+
+        return $"@{me.Username}";
     }
 
     private async Task HandleTextAsync(Message message, CancellationToken cancellationToken)
@@ -152,7 +162,7 @@ public sealed class MessageHandler
 
             await _client.SendMessage(
                 message.Chat.Id,
-                "Couldn't load this item. Please try again later.",
+                TelegramMessages.ItemLoadFailed,
                 replyParameters: replyParameters,
                 cancellationToken: cancellationToken);
         }

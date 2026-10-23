@@ -1,6 +1,7 @@
 using frytech.AppleMusic.API.Extensions;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Requests;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Resources;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Catalog;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Telegram;
 using Microsoft.Extensions.Options;
@@ -35,9 +36,9 @@ public sealed class MusicPresenter
 
         var caption = artist.Attributes.Name;
         var replyMarkup = new InlineKeyboardMarkup()
-            .AddButton(new InlineKeyboardButton("Songs") { SwitchInlineQueryCurrentChat = $"{InlineQueryParser.ArtistSongsKeyword}: {artist.Id}" })
-            .AddButton(new InlineKeyboardButton("Albums") { SwitchInlineQueryCurrentChat = $"{InlineQueryParser.ArtistAlbumsKeyword}: {artist.Id}" })
-            .AddButton(new InlineKeyboardButton("Playlists") { SwitchInlineQueryCurrentChat = $"{InlineQueryParser.ArtistPlaylistsKeyword}: {artist.Id}" });
+            .AddButton(new InlineKeyboardButton(TelegramButtons.Songs) { SwitchInlineQueryCurrentChat = $"{InlineQueryParser.ArtistSongsKeyword}: {artist.Id}" })
+            .AddButton(new InlineKeyboardButton(TelegramButtons.Albums) { SwitchInlineQueryCurrentChat = $"{InlineQueryParser.ArtistAlbumsKeyword}: {artist.Id}" })
+            .AddButton(new InlineKeyboardButton(TelegramButtons.Playlists) { SwitchInlineQueryCurrentChat = $"{InlineQueryParser.ArtistPlaylistsKeyword}: {artist.Id}" });
 
         var artworkUrl = artist.Attributes.Artwork?.GetImageUrl(_appSettings.Telegram.ThumbnailSize);
 
@@ -48,14 +49,20 @@ public sealed class MusicPresenter
     {
         var album = await _catalog.GetAlbumAsync(albumId, store);
 
-        var caption = $"{album.Attributes.ArtistName} - {album.Attributes.Name}\n\n{album.Attributes.TrackCount} tracks\n{album.Attributes.ReleaseDate:yyyy.MM.dd}";
+        var caption = string.Format(
+            TelegramMessages.AlbumCaption,
+            album.Attributes.ArtistName,
+            album.Attributes.Name,
+            album.Attributes.TrackCount,
+            album.Attributes.ReleaseDate.ToString("yyyy.MM.dd"));
+
         var replyMarkup = new InlineKeyboardMarkup()
-            .AddButton(new InlineKeyboardButton("Songs") { SwitchInlineQueryCurrentChat = $"{InlineQueryParser.AlbumSongsKeyword}: {album.Id}" });
+            .AddButton(new InlineKeyboardButton(TelegramButtons.Songs) { SwitchInlineQueryCurrentChat = $"{InlineQueryParser.AlbumSongsKeyword}: {album.Id}" });
 
         if (album.Relationships.Artists.Data?.FirstOrDefault()?.Id is { } artistId)
-            replyMarkup.AddButton(new InlineKeyboardButton("Artist") { CallbackData = CallbackData.ForArtist(artistId) });
+            replyMarkup.AddButton(new InlineKeyboardButton(TelegramButtons.Artist) { CallbackData = CallbackData.ForArtist(artistId) });
 
-        replyMarkup.AddNewRow(new InlineKeyboardButton("Get All Songs") { CallbackData = CallbackData.ForDownloadAlbum(album.Id) });
+        replyMarkup.AddNewRow(new InlineKeyboardButton(TelegramButtons.GetAllSongs) { CallbackData = CallbackData.ForDownloadAlbum(album.Id) });
 
         var artworkUrl = album.Attributes.Artwork?.GetImageUrl(_appSettings.Telegram.ThumbnailSize);
 
@@ -66,11 +73,11 @@ public sealed class MusicPresenter
     {
         var playlist = await _catalog.GetPlaylistAsync(playlistId, store);
 
-        var caption = $"{playlist.Attributes.Name}\n\nCurator: {playlist.Attributes.CuratorName}";
+        var caption = string.Format(TelegramMessages.PlaylistCaption, playlist.Attributes.Name, playlist.Attributes.CuratorName);
         var replyMarkup = new InlineKeyboardMarkup()
-            .AddButton(new InlineKeyboardButton("Songs") { SwitchInlineQueryCurrentChat = $"{InlineQueryParser.PlaylistSongsKeyword}: {playlist.Id}" });
+            .AddButton(new InlineKeyboardButton(TelegramButtons.Songs) { SwitchInlineQueryCurrentChat = $"{InlineQueryParser.PlaylistSongsKeyword}: {playlist.Id}" });
 
-        replyMarkup.AddNewRow(new InlineKeyboardButton("Get All Songs") { CallbackData = CallbackData.ForDownloadPlaylist(playlist.Id) });
+        replyMarkup.AddNewRow(new InlineKeyboardButton(TelegramButtons.GetAllSongs) { CallbackData = CallbackData.ForDownloadPlaylist(playlist.Id) });
 
         var artworkUrl = playlist.Attributes.Artwork?.GetImageUrl(_appSettings.Telegram.ThumbnailSize);
 

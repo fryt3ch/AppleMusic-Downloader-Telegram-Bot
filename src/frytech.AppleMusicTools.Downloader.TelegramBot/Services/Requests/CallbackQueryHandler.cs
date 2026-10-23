@@ -1,6 +1,7 @@
 using frytech.AppleMusic.API.Models.Enums;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Requests;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Resources;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Catalog;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Downloads;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests.Presentation;
@@ -110,7 +111,7 @@ public sealed class CallbackQueryHandler
             {
                 await _client.SendMessage(
                     message.Chat.Id,
-                    "Couldn't load this item. Please try again later.",
+                    TelegramMessages.ItemLoadFailed,
                     replyParameters: replyParameters,
                     cancellationToken: cancellationToken);
             }
