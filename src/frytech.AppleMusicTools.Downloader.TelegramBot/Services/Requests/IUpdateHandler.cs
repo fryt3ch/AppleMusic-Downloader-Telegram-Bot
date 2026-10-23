@@ -1,6 +1,6 @@
 ﻿using Telegram.Bot.Types;
 
-namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services;
+namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests;
 
 public interface IUpdateHandler
 {

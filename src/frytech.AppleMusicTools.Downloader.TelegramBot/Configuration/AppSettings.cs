@@ -1,5 +1,6 @@
 ﻿using FluentValidation;
-using frytech.AppleMusicTools.Downloader.TelegramBot.Services;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.SongFiles;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.SongFiles.Providers;
 
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
     
@@ -33,11 +34,23 @@ public class AppSettings
 
         [ConfigurationKeyName("THUMBNAIL_PREVIEW_SIZE")]
         public int ThumbnailPreviewSize { get; init; } = 120;
+
+        [ConfigurationKeyName("PROGRESS_UPDATE_INTERVAL_SECONDS")]
+        public int ProgressUpdateIntervalSeconds { get; init; } = 2;
+        
+        [ConfigurationKeyName("DOWNLOADS")]
+        public DownloadsSection Downloads { get; init; } = new();
         
         public class WebhookSection
         {
             [ConfigurationKeyName("URL")]
             public Uri? Url { get; init; }
+
+            [ConfigurationKeyName("PATH")]
+            public string Path { get; init; } = "/api/bot/update";
+
+            [ConfigurationKeyName("SECRET_TOKEN")]
+            public string? SecretToken { get; init; }
 
             [ConfigurationKeyName("MAX_CONNECTIONS")]
             public int MaxConnections { get; init; } = 5;
@@ -54,8 +67,41 @@ public class AppSettings
                     .NotEmpty()
                     .When(x => x.IsEnabled);
 
+                RuleFor(x => x.Path)
+                    .NotEmpty()
+                    .Must(path => path.StartsWith('/'))
+                    .WithMessage("Webhook path must start with '/'.")
+                    .When(x => x.IsEnabled);
+
+                RuleFor(x => x.SecretToken)
+                    .MaximumLength(256)
+                    .Matches("^[A-Za-z0-9_-]+$")
+                    .When(x => !string.IsNullOrEmpty(x.SecretToken));
+
                 RuleFor(x => x.MaxConnections)
                     .InclusiveBetween(1, int.MaxValue);
+            }
+        }
+        
+        public class DownloadsSection
+        {
+            [ConfigurationKeyName("MAX_CONCURRENCY")]
+            public int MaxConcurrency { get; init; } = 2;
+
+            [ConfigurationKeyName("MAX_PENDING_SONGS")]
+            public int MaxPendingSongs { get; init; } = 2000;
+
+            [ConfigurationKeyName("MAX_PENDING_BULK_PER_USER")]
+            public int MaxPendingBulkPerUser { get; init; } = 1;
+        }
+
+        public class DownloadsSectionValidator : AbstractValidator<DownloadsSection>
+        {
+            public DownloadsSectionValidator()
+            {
+                RuleFor(x => x.MaxConcurrency).InclusiveBetween(1, 16);
+                RuleFor(x => x.MaxPendingSongs).InclusiveBetween(1, 100000);
+                RuleFor(x => x.MaxPendingBulkPerUser).InclusiveBetween(1, 10);
             }
         }
     }
@@ -67,10 +113,18 @@ public class AppSettings
             RuleFor(x => x.StorageChatId).NotEmpty();
             RuleFor(x => x.BotToken).NotEmpty();
             RuleFor(x => x.ServerApiUrl).NotEmpty();
+            RuleFor(x => x.ServerApiUrl).Must(uri => uri is { IsAbsoluteUri: true }).WithMessage("Telegram ServerApiUrl must be an absolute URI.");
+            RuleFor(x => x.ThumbnailSize).GreaterThan(0);
+            RuleFor(x => x.ThumbnailPreviewSize).GreaterThan(0);
+            RuleFor(x => x.ProgressUpdateIntervalSeconds).InclusiveBetween(0, 60);
             
             RuleFor(x => x.Webhook!)
                 .SetValidator(new TelegramSection.WebhookSectionValidator())
                 .When(x => x.Webhook is not null);
+            
+            RuleFor(x => x.Downloads)
+                .NotNull()
+                .SetValidator(new TelegramSection.DownloadsSectionValidator());
         }
     }
     
@@ -93,6 +147,7 @@ public class AppSettings
             RuleFor(x => x.ApiToken).NotEmpty();
             RuleFor(x => x.DefaultStore).NotEmpty();
             RuleFor(x => x.StoreApiUrl).NotEmpty();
+            RuleFor(x => x.StoreApiUrl).Must(url => Uri.TryCreate(url, UriKind.Absolute, out _)).WithMessage("Apple Music StoreApiUrl must be an absolute URI.");
         }
     }
 
@@ -100,6 +155,15 @@ public class AppSettings
     {
         [ConfigurationKeyName("PROVIDER")]
         public string Provider { get; init; } = "gamdl";
+
+        [ConfigurationKeyName("PROCESS_TIMEOUT_SECONDS")]
+        public int ProcessTimeoutSeconds { get; init; } = 300;
+
+        [ConfigurationKeyName("MAX_CONCURRENCY")]
+        public int MaxConcurrency { get; init; } = 3;
+
+        [ConfigurationKeyName("DELAY_AFTER_DOWNLOAD_SECONDS")]
+        public int DelayAfterDownloadSeconds { get; init; } = 3;
         
         [ConfigurationKeyName("GAMDL")]
         public AppleMusicDownloaderSection Gamdl { get; init; } = new();
@@ -133,6 +197,9 @@ public class AppSettings
 
             RuleFor(x => x.Gamdl).NotNull();
             RuleFor(x => x.YtDlp).NotNull();
+            RuleFor(x => x.ProcessTimeoutSeconds).InclusiveBetween(1, 86400);
+            RuleFor(x => x.MaxConcurrency).InclusiveBetween(1, 16);
+            RuleFor(x => x.DelayAfterDownloadSeconds).InclusiveBetween(0, 3600);
 
             When(x => string.Equals(x.Provider, GamdlSongFileProvider.Name, StringComparison.OrdinalIgnoreCase), () =>
             {

@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Start" xml:space="preserve">
+    <value>Press the desired button below and append some text to make a search query.&#10;&#10;Example (All): {0} The Beatles&#10;Example (Song): {0} song: Moonlight Shadow&#10;&#10;If you press '{1}', you'll get everything - songs, artists, albums, playlists.</value>
+  </data>
+  <data name="WrongUrlFormat" xml:space="preserve">
+    <value>Wrong URL format!</value>
+  </data>
+  <data name="WrongAppleMusicUrlFormat" xml:space="preserve">
+    <value>Wrong URL format! Expected something like: https://music.apple.com/us/song/...</value>
+  </data>
+  <data name="PendingDownload" xml:space="preserve">
+    <value>You already have some pending requests!</value>
+  </data>
+  <data name="DownloadFailed" xml:space="preserve">
+    <value>Something went wrong with your latest songs request!</value>
+  </data>
+  <data name="ProgressGathering" xml:space="preserve">
+    <value>Songs processed: {0} of {1}{2}.&#10;&#10;{3}</value>
+  </data>
+  <data name="ProgressFailedSuffix" xml:space="preserve">
+    <value> ({0} failed)</value>
+  </data>
+  <data name="ProgressSending" xml:space="preserve">
+    <value>All songs were gathered, sending them in groups: {0} of {1}.&#10;&#10;{2}</value>
+  </data>
+  <data name="ProgressWarning" xml:space="preserve">
+    <value>This process may take a long time so be patient. Only one pending request is available per user, so wait for this one to be done before making a new one.</value>
+  </data>
+  <data name="FailedSongsHeader" xml:space="preserve">
+    <value>Couldn't get {0} song(s):</value>
+  </data>
+  <data name="FailedSongLine" xml:space="preserve">
+    <value>• {0} — {1}</value>
+  </data>
+  <data name="DownloadingStatus" xml:space="preserve">
+    <value>⬇️ Downloading…</value>
+  </data>
+  <data name="QueuePosition" xml:space="preserve">
+    <value>⏳ Queued: position {0} of {1}</value>
+  </data>
+  <data name="FailedStatus" xml:space="preserve">
+    <value>❌ Failed</value>
+  </data>
+  <data name="QueueLimitReached" xml:space="preserve">
+    <value>Too many songs are already queued. Please try again later.</value>
+  </data>
+  <data name="ItemLoadFailed" xml:space="preserve">
+    <value>Couldn't load this item. Please try again later.</value>
+  </data>
+  <data name="CancelResultCancelled" xml:space="preserve">
+    <value>Cancelled</value>
+  </data>
+  <data name="CancelResultCancelling" xml:space="preserve">
+    <value>Cancelling...</value>
+  </data>
+  <data name="CancelResultNotOwner" xml:space="preserve">
+    <value>Not your download</value>
+  </data>
+  <data name="CancelResultAlreadyFinished" xml:space="preserve">
+    <value>Already finished</value>
+  </data>
+  <data name="AlbumCaption" xml:space="preserve">
+    <value>{0} - {1}&#10;&#10;{2} tracks&#10;{3}</value>
+  </data>
+  <data name="PlaylistCaption" xml:space="preserve">
+    <value>{0}&#10;&#10;Curator: {1}</value>
+  </data>
+  <data name="InlineMusicVideoDescription" xml:space="preserve">
+    <value>{0}&#10;Music Videos Are Not Available!</value>
+  </data>
+  <data name="InlineNotReleased" xml:space="preserve">
+    <value>Not Released</value>
+  </data>
+  <data name="InlineDuration" xml:space="preserve">
+    <value>{0} min. {1} sec.</value>
+  </data>
+  <data name="InlineTrackDescription" xml:space="preserve">
+    <value>{0}&#10;{1}</value>
+  </data>
+  <data name="InlineAlbumDescription" xml:space="preserve">
+    <value>{0}&#10;{1} | {2} tracks</value>
+  </data>
+  <data name="InlinePlaylistDescription" xml:space="preserve">
+    <value>{0}&#10;{1}</value>
+  </data>
+</root>
