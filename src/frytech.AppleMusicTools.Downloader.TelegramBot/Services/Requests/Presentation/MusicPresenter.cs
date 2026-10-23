@@ -62,8 +62,7 @@ public sealed class MusicPresenter
         if (album.Relationships.Artists.Data?.FirstOrDefault()?.Id is { } artistId)
             replyMarkup.AddButton(new InlineKeyboardButton(TelegramButtons.Artist) { CallbackData = CallbackData.ForArtist(artistId) });
 
-        replyMarkup.AddNewRow(new InlineKeyboardButton(
-            string.Format(TelegramButtons.GetAllSongs, _appSettings.Telegram.Downloads.MaxSongsPerBatch))
+        replyMarkup.AddNewRow(new InlineKeyboardButton(TelegramButtons.GetAllSongs)
         {
             CallbackData = CallbackData.ForDownloadAlbum(album.Id),
         });
@@ -81,8 +80,7 @@ public sealed class MusicPresenter
         var replyMarkup = new InlineKeyboardMarkup()
             .AddButton(new InlineKeyboardButton(TelegramButtons.Songs) { SwitchInlineQueryCurrentChat = $"{InlineQueryParser.PlaylistSongsKeyword}: {playlist.Id}" });
 
-        replyMarkup.AddNewRow(new InlineKeyboardButton(
-            string.Format(TelegramButtons.GetAllSongs, _appSettings.Telegram.Downloads.MaxSongsPerBatch))
+        replyMarkup.AddNewRow(new InlineKeyboardButton(TelegramButtons.GetAllSongs)
         {
             CallbackData = CallbackData.ForDownloadPlaylist(playlist.Id),
         });

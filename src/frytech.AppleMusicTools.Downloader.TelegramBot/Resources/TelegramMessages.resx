@@ -68,7 +68,7 @@
     <value>Wrong URL format! Expected something like: https://music.apple.com/us/song/...</value>
   </data>
   <data name="PendingDownload" xml:space="preserve">
-    <value>You already have some pending requests!</value>
+    <value>You already have some pending requests! Wait until they finish or cancel them.</value>
   </data>
   <data name="DownloadFailed" xml:space="preserve">
     <value>Something went wrong with your latest songs request!</value>
@@ -83,7 +83,7 @@
     <value>All songs were gathered, sending them in groups: {0} of {1}.&#10;&#10;{2}</value>
   </data>
   <data name="ProgressWarning" xml:space="preserve">
-    <value>This process may take a long time so be patient. Only one pending request is available per user, so wait for this one to be done before making a new one.</value>
+    <value>This process may take a long time so be patient.</value>
   </data>
   <data name="FailedSongsHeader" xml:space="preserve">
     <value>Couldn't get {0} song(s):</value>
