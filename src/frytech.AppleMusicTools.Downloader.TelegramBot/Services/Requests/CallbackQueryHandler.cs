@@ -255,9 +255,10 @@ public sealed class CallbackQueryHandler
                 })
             : new InlineKeyboardMarkup();
 
-        var notice = new DownloadBatchNotice(text, replyMarkup, replyParameters, currentOffset > 0 ? sourceMessage.MessageId : null);
+        var existingStatusMessageId = currentOffset > 0 ? sourceMessage.MessageId : (int?)null;
+        var notice = new DownloadBatchNotice(text, replyMarkup, replyParameters, existingStatusMessageId);
 
-        await _downloadCoordinator.StartBulkAsync(chat, user, batch.SongIds, store, replyParameters, notice, cancellationToken);
+        await _downloadCoordinator.StartBulkAsync(chat, user, batch.SongIds, store, replyParameters, notice, existingStatusMessageId, cancellationToken);
     }
 
     private async Task<bool> TryEditBatchMessageAsync(Chat chat, int messageId, string text, InlineKeyboardMarkup replyMarkup, CancellationToken cancellationToken)

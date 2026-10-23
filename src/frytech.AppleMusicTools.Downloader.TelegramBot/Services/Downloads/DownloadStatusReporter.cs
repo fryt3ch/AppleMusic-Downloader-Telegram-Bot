@@ -1,6 +1,7 @@
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models.Downloads;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Telegram;
 using Telegram.Bot;
+using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 
@@ -17,8 +18,34 @@ public sealed class DownloadStatusReporter
         _logger = logger;
     }
 
-    public async Task<int?> SendStatusAsync(DownloadRequest request, string text, InlineKeyboardMarkup replyMarkup, CancellationToken cancellationToken)
+    public async Task<int?> SendStatusAsync(DownloadRequest request, string text, InlineKeyboardMarkup replyMarkup, int? existingMessageId, CancellationToken cancellationToken)
     {
+        if (existingMessageId is { } messageId)
+        {
+            try
+            {
+                await TelegramApiRetry.ExecuteAsync(
+                    requestToken => _client.EditMessageText(
+                        request.Chat.Id,
+                        messageId,
+                        text,
+                        replyMarkup: replyMarkup,
+                        cancellationToken: requestToken),
+                    _logger,
+                    cancellationToken);
+
+                return messageId;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to reuse status message {MessageId} for {DownloadId}", messageId, request.DownloadId);
+            }
+        }
+
         try
         {
             var message = await TelegramApiRetry.ExecuteAsync(
@@ -56,6 +83,10 @@ public sealed class DownloadStatusReporter
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (ApiRequestException ex) when (ex.ErrorCode == 400)
+            {
+                _logger.LogDebug(ex, "Previous batch notice {MessageId} was already removed in chat {ChatId}", messageId, chat.Id);
             }
             catch (Exception ex)
             {
