@@ -179,6 +179,8 @@ The URL must be publicly reachable and routed to the bot on port `8080`.
 
 ## Configuration
 
+The bot container loads `.env` through `env_file`, so every variable listed below is passed without a per-key mapping in `docker-compose.yml`.
+
 ### Core
 
 | Variable | Required | Default | Description |
@@ -187,6 +189,7 @@ The URL must be publicly reachable and routed to the bot on port `8080`.
 | `TELEGRAM__STORAGE_CHAT_ID` | Yes | — | Chat ID used to cache uploaded audio. |
 | `APPLE_MUSIC__API_TOKEN` | Yes | — | Apple Music JWT developer token. |
 | `APPLE_MUSIC__DEFAULT_STORE` | No | `us` | Storefront used for search and metadata (`us`, `kz`, `ru`, ...). |
+| `APPLE_MUSIC__STORE_API_URL` | No | `https://amp-api-edge.music.apple.com/v1/` | Apple Music Catalog API base URL. |
 | `DOWNLOADER__PROVIDER` | No | `gamdl` | `gamdl` for Apple Music or `ytdlp` for YouTube. |
 | `DOWNLOADER__GAMDL__COOKIES_PATH` | `gamdl` | `/app/data/cookies.txt` | Apple Music cookies file. |
 | `DOWNLOADER__YTDLP__COOKIES_PATH` | No | `/app/data/cookies.txt` | Optional YouTube cookies file. |

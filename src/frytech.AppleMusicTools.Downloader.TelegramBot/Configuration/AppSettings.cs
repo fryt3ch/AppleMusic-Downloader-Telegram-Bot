@@ -53,7 +53,7 @@ public class AppSettings
             public string? SecretToken { get; init; }
 
             [ConfigurationKeyName("MAX_CONNECTIONS")]
-            public int MaxConnections { get; init; } = 5;
+            public int MaxConnections { get; init; } = 50;
             
             [ConfigurationKeyName("ENABLED")]
             public bool IsEnabled { get; init; } = false;
