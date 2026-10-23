@@ -70,7 +70,16 @@ public sealed class CallbackQueryHandler
         await TryAnswerCallbackAsync(callbackQuery.Id, null, cancellationToken);
 
         var store = _appSettings.AppleMusic.DefaultStore;
-        var replyParameters = new ReplyParameters { AllowSendingWithoutReply = true, MessageId = message.MessageId };
+        var sourceMessageId = callbackData switch
+        {
+            CallbackData.DownloadAlbum { Offset: > 0 } => message.ReplyToMessage?.MessageId,
+            CallbackData.DownloadPlaylist { Offset: > 0 } => message.ReplyToMessage?.MessageId,
+            _ => message.MessageId,
+        };
+
+        var replyParameters = sourceMessageId is { } sourceId
+            ? new ReplyParameters { AllowSendingWithoutReply = true, MessageId = sourceId }
+            : null;
 
         _logger.LogInformation("Handling callback {CallbackAction} for query {CallbackQueryId} in chat {ChatId}", callbackData.GetType().Name, callbackQuery.Id, message.Chat.Id);
 
@@ -215,7 +224,7 @@ public sealed class CallbackQueryHandler
         Func<int, string> nextCallback,
         int currentOffset,
         Message sourceMessage,
-        ReplyParameters replyParameters,
+        ReplyParameters? replyParameters,
         CancellationToken cancellationToken)
     {
         if (batch.SongIds.Count == 0)
@@ -246,8 +255,7 @@ public sealed class CallbackQueryHandler
                 })
             : new InlineKeyboardMarkup();
 
-        var isNextBatch = currentOffset > 0;
-        var notice = new DownloadBatchNotice(text, replyMarkup, isNextBatch ? null : replyParameters, isNextBatch ? sourceMessage.MessageId : null);
+        var notice = new DownloadBatchNotice(text, replyMarkup, replyParameters, currentOffset > 0 ? sourceMessage.MessageId : null);
 
         await _downloadCoordinator.StartBulkAsync(chat, user, batch.SongIds, store, replyParameters, notice, cancellationToken);
     }
