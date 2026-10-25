@@ -10,11 +10,17 @@ public class AppDbContext : DbContext
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
     }
-    
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<CachedSong>()
-            .ToTable("CachedSongs")
-            .HasKey(x => new { x.SongId, x.Store });
+        modelBuilder.Entity<CachedSong>(entity =>
+        {
+            entity
+                .ToTable("CachedSongs")
+                .HasKey(x => x.Id);
+
+            entity.HasIndex(x => new { x.NormalizedArtistName, x.NormalizedName });
+            entity.HasIndex(x => x.SourceUrl);
+        });
     }
 }

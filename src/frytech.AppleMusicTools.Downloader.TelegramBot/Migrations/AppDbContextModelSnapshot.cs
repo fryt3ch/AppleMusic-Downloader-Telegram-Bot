@@ -19,14 +19,15 @@ namespace frytech.AppleMusicTools.Downloader.TelegramBot.Migrations
 
             modelBuilder.Entity("frytech.AppleMusicTools.Downloader.TelegramBot.Models.Database.CachedSong", b =>
                 {
-                    b.Property<string>("SongId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Store")
-                        .HasColumnType("TEXT");
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("ArtistName")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<TimeSpan>("Duration")
@@ -44,11 +45,26 @@ namespace frytech.AppleMusicTools.Downloader.TelegramBot.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("NormalizedArtistName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Provider")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.HasKey("SongId", "Store");
+                    b.Property<string>("SourceUrl")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SourceUrl");
+
+                    b.HasIndex("NormalizedArtistName", "NormalizedName");
 
                     b.ToTable("CachedSongs", (string)null);
                 });

@@ -35,6 +35,7 @@ public static class ServiceCollectionExtensions
             options.UseSqlite(configuration.GetConnectionString("App")));
 
         services.AddSingleton<CachedSongDbLock>();
+        services.AddScoped<CachedSongsLegacyMigrator>();
 
         return services;
     }

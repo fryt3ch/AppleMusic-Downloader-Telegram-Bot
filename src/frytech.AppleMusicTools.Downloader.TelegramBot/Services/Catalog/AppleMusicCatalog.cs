@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using frytech.AppleMusic.API.Clients.Interfaces;
 using frytech.AppleMusic.API.Models.Core;
 using frytech.AppleMusic.API.Models.Resources;
@@ -10,6 +11,7 @@ public class AppleMusicCatalog
 {
     private readonly ICatalogClient _catalogClient;
     private readonly ILogger<AppleMusicCatalog> _logger;
+    private readonly ConcurrentDictionary<(string Id, string Store), Lazy<Task<Song>>> _songCache = new();
 
     public AppleMusicCatalog(ICatalogClient catalogClient, ILogger<AppleMusicCatalog> logger)
     {
@@ -17,7 +19,14 @@ public class AppleMusicCatalog
         _logger = logger;
     }
 
-    public async Task<Song> GetSongAsync(string id, string store)
+    public Task<Song> GetSongAsync(string id, string store)
+    {
+        return _songCache.GetOrAdd((id, store),
+            key => new Lazy<Task<Song>>(() => GetSongCoreAsync(key.Id, key.Store), LazyThreadSafetyMode.ExecutionAndPublication))
+            .Value;
+    }
+
+    private async Task<Song> GetSongCoreAsync(string id, string store)
     {
         _logger.LogDebug("Fetching Apple Music song {SongId} from store {Store}", id, store);
 
