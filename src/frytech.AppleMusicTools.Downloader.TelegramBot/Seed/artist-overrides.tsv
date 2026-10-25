@@ -1,0 +1,11 @@
+# Optional manual artist mapping.
+# Format: <artist name><TAB><Apple Music artist ID or URL>
+# Lines starting with # are ignored.
+#
+# Examples:
+# The Beatles	136975
+# Queen	https://music.apple.com/kz/artist/queen/32940
+
+# ListenBrainz lists Kanye West as "Ye", while Apple Music also has an unrelated artist named "Ye".
+Ye	2715720
+Kanye West	2715720

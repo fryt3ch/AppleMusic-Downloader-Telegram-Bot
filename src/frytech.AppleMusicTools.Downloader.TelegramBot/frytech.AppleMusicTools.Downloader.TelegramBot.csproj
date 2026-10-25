@@ -27,6 +27,10 @@
     </ItemGroup>
 
     <ItemGroup>
+      <Content Include="Seed\**\*" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
+    <ItemGroup>
       <EmbeddedResource Update="Resources\TelegramMessages.resx">
         <Generator>ResXFileCodeGenerator</Generator>
         <LastGenOutput>TelegramMessages.Designer.cs</LastGenOutput>
