@@ -1,6 +1,5 @@
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services;
-using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Caching;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.SongFiles;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Telegram;
 using Microsoft.EntityFrameworkCore;
@@ -26,17 +25,6 @@ public static class WebApplicationExtensions
             await dbContext.Database.MigrateAsync();
 
             logger.LogInformation("Database migrations applied");
-
-            try
-            {
-                var legacyMigrator = scope.ServiceProvider.GetRequiredService<CachedSongsLegacyMigrator>();
-
-                await legacyMigrator.MigrateAsync();
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Legacy cached songs migration failed");
-            }
         }
         catch (Exception ex)
         {

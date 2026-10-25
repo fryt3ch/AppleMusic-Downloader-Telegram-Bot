@@ -40,11 +40,7 @@ public sealed class TelegramStorage : ISongStorage
         _storageChatId = new ChatId(appSettings.Value.Telegram.StorageChatId);
     }
 
-    public async Task<CachedSong> GetOrAddSong(
-        string songId,
-        string store,
-        Func<CancellationToken, Task<SongFile>> getSongFile,
-        CancellationToken cancellationToken)
+    public async Task<CachedSong> GetOrAddSong(string songId, string store, Func<CancellationToken, Task<SongFile>> getSongFile, CancellationToken cancellationToken)
     {
         var sourceUrl = AppleMusicUrl.Create(ResourceType.Songs, songId, store).AbsoluteUri;
 
@@ -106,8 +102,7 @@ public sealed class TelegramStorage : ISongStorage
                     _logger,
                     cancellationToken);
 
-                var uploadedFile = uploadedFileMessage.Audio
-                    ?? throw new InvalidOperationException($"Telegram did not return an audio file for song '{downloadedSong.Id}'.");
+                var uploadedFile = uploadedFileMessage.Audio ?? throw new InvalidOperationException($"Telegram did not return an audio file for song '{downloadedSong.Id}'.");
 
                 cachedSong = new CachedSong
                 {
