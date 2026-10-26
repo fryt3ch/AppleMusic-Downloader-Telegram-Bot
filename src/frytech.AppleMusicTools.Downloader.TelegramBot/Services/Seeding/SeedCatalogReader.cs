@@ -17,16 +17,11 @@ public sealed class SeedCatalogReader
     private const int MaxArtistSongPages = 50;
 
     private readonly AppleMusicCatalog _catalog;
-    private readonly AppSettings _appSettings;
     private readonly ILogger<SeedCatalogReader> _logger;
 
-    public SeedCatalogReader(
-        AppleMusicCatalog catalog,
-        IOptions<AppSettings> appSettings,
-        ILogger<SeedCatalogReader> logger)
+    public SeedCatalogReader(AppleMusicCatalog catalog, ILogger<SeedCatalogReader> logger)
     {
         _catalog = catalog;
-        _appSettings = appSettings.Value;
         _logger = logger;
     }
 
@@ -155,11 +150,7 @@ public sealed class SeedCatalogReader
         return songs;
     }
 
-    private async Task<T> ExecuteWithRetryAsync<T>(
-        string operation,
-        Func<Task<T>> action,
-        Func<T, bool> hasResult,
-        CancellationToken cancellationToken)
+    private async Task<T> ExecuteWithRetryAsync<T>(string operation, Func<Task<T>> action, Func<T, bool> hasResult, CancellationToken cancellationToken)
     {
         const int maxAttempts = 3;
 

@@ -50,11 +50,7 @@ public sealed class SeedArtistListLoader
             result.Add(new SeedArtistRecord(result.Count, line, normalized, appleMusicId));
         }
 
-        _logger.LogInformation(
-            "Loaded {Count} seed artists from {Path} ({Overrides} overrides)",
-            result.Count,
-            artistsPath,
-            overrides.Count);
+        _logger.LogInformation("Loaded {Count} seed artists from {Path} ({Overrides} overrides)", result.Count, artistsPath, overrides.Count);
 
         return result;
     }
@@ -125,39 +121,5 @@ public sealed class SeedArtistListLoader
         var matches = Regex.Matches(value, @"\d{3,}");
 
         return matches.Count == 0 ? null : matches[^1].Value;
-    }
-}
-
-public static class SeedPathResolver
-{
-    public static string ResolveReadPath(string path)
-    {
-        if (Path.IsPathRooted(path))
-            return path;
-
-        var basePath = Path.Combine(AppContext.BaseDirectory, path);
-
-        if (File.Exists(basePath))
-            return basePath;
-
-        var currentPath = Path.Combine(Directory.GetCurrentDirectory(), path);
-
-        return File.Exists(currentPath) ? currentPath : basePath;
-    }
-
-    public static string ResolveWritePath(string path)
-    {
-        if (Path.IsPathRooted(path))
-            return path;
-
-        return Path.Combine(Directory.GetCurrentDirectory(), path);
-    }
-
-    public static void EnsureParentDirectory(string path)
-    {
-        var directory = Path.GetDirectoryName(path);
-
-        if (!string.IsNullOrEmpty(directory))
-            Directory.CreateDirectory(directory);
     }
 }

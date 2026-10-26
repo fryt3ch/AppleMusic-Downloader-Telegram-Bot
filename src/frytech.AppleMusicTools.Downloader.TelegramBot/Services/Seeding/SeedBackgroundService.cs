@@ -10,11 +10,7 @@ public sealed class SeedBackgroundService : BackgroundService
     private readonly IHostApplicationLifetime _lifetime;
     private readonly ILogger<SeedBackgroundService> _logger;
 
-    public SeedBackgroundService(
-        SeedRunner runner,
-        IOptions<AppSettings> appSettings,
-        IHostApplicationLifetime lifetime,
-        ILogger<SeedBackgroundService> logger)
+    public SeedBackgroundService(SeedRunner runner, IOptions<AppSettings> appSettings, IHostApplicationLifetime lifetime, ILogger<SeedBackgroundService> logger)
     {
         _runner = runner;
         _appSettings = appSettings.Value;

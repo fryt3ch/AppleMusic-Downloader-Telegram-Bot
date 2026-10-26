@@ -167,10 +167,7 @@ public sealed class SeedRunner
 
                 if (processedAppleMusicIds.Contains(resolvedArtist.Id))
                 {
-                    _logger.LogInformation(
-                        "Skipping '{Name}': Apple Music artist {ArtistId} was already processed under another name",
-                        artist.Name,
-                        resolvedArtist.Id);
+                    _logger.LogInformation("Skipping '{Name}': Apple Music artist {ArtistId} was already processed under another name", artist.Name, resolvedArtist.Id);
 
                     stats.ArtistsSkipped++;
 
@@ -188,8 +185,7 @@ public sealed class SeedRunner
 
                 processedAppleMusicIds.Add(resolvedArtist.Id);
 
-                _logger.LogInformation(
-                    "Matched '{Name}' -> '{MatchedName}' ({ArtistId}, score {Score:0.000})",
+                _logger.LogInformation("Matched '{Name}' -> '{MatchedName}' ({ArtistId}, score {Score:0.000})",
                     artist.Name,
                     resolvedArtist.MatchedName,
                     resolvedArtist.Id,
@@ -330,8 +326,7 @@ public sealed class SeedRunner
         var songs = new List<Song>();
         var seenSongIds = new HashSet<string>(StringComparer.Ordinal);
 
-        _logger.LogInformation(
-            "Artist '{Name}': {SelectedAlbums}/{TotalAlbums} albums selected after filtering",
+        _logger.LogInformation("Artist '{Name}': {SelectedAlbums}/{TotalAlbums} albums selected after filtering",
             artist.Name,
             albums.Length,
             allAlbums.Count);
@@ -424,8 +419,7 @@ public sealed class SeedRunner
 
         if (settings.DryRun)
         {
-            _logger.LogInformation(
-                "Dry run: artist '{Name}' would process {Songs} songs from {Albums} albums",
+            _logger.LogInformation("Dry run: artist '{Name}' would process {Songs} songs from {Albums} albums",
                 artist.Name,
                 songs.Count,
                 albums.Length);
@@ -545,19 +539,16 @@ public sealed class SeedRunner
                         {
                             if (Interlocked.Exchange(ref counters.CircuitBroken, 1) == 0)
                             {
-                                _logger.LogError(
-                                    "Stopping seed after {Failures} consecutive download failures. Check gamdl cookies, Apple Music subscription, and rate limits.",
-                                    consecutiveFailures);
+                                _logger.LogError("Stopping seed after {Failures} consecutive download failures. Check gamdl cookies, Apple Music subscription, and rate limits.", consecutiveFailures);
 
-                                downloadCts.Cancel();
+                                await downloadCts.CancelAsync();
                             }
                         }
                     }
 
                     if (attempted % 10 == 0)
                     {
-                        _logger.LogInformation(
-                            "Artist '{Artist}': processed {Processed}/{Total}, failed {Failed}",
+                        _logger.LogInformation("Artist '{Artist}': processed {Processed}/{Total}, failed {Failed}",
                             artist.Name,
                             Volatile.Read(ref counters.Attempted),
                             songs.Count,
@@ -631,8 +622,7 @@ public sealed class SeedRunner
             {
                 var delay = TimeSpan.FromSeconds(Math.Pow(2, attempt - 1));
 
-                _logger.LogWarning(
-                    "Download failed for '{Artist} - {Song}' (id: {SongId}): {Error}; retrying in {Delay} (attempt {Attempt}/{MaxAttempts})",
+                _logger.LogWarning("Download failed for '{Artist} - {Song}' (id: {SongId}): {Error}; retrying in {Delay} (attempt {Attempt}/{MaxAttempts})",
                     artistName,
                     song.Attributes?.Name ?? song.Id,
                     song.Id,
@@ -704,16 +694,14 @@ public sealed class SeedRunner
 
         if (artistState.Status == SeedArtistStatus.Done)
         {
-            var overrideWasAdded = !string.IsNullOrWhiteSpace(artist.AppleMusicId) &&
-                                   !string.Equals(artistState.AppleMusicId, artist.AppleMusicId, StringComparison.Ordinal);
+            var overrideWasAdded = !string.IsNullOrWhiteSpace(artist.AppleMusicId) && !string.Equals(artistState.AppleMusicId, artist.AppleMusicId, StringComparison.Ordinal);
 
             return !overrideWasAdded;
         }
 
         if (artistState.Status == SeedArtistStatus.Skipped)
         {
-            var overrideWasAdded = !string.IsNullOrWhiteSpace(artist.AppleMusicId) &&
-                                   !string.Equals(artistState.AppleMusicId, artist.AppleMusicId, StringComparison.Ordinal);
+            var overrideWasAdded = !string.IsNullOrWhiteSpace(artist.AppleMusicId) && !string.Equals(artistState.AppleMusicId, artist.AppleMusicId, StringComparison.Ordinal);
 
             return !overrideWasAdded;
         }

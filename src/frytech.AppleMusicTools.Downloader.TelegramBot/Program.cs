@@ -1,5 +1,4 @@
 ﻿using System.Runtime.InteropServices;
-using Microsoft.Extensions.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Extensions;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Seeding;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Telegram;

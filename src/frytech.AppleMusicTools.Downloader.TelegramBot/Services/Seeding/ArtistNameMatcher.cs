@@ -18,7 +18,7 @@ public static class ArtistNameMatcher
         {
             var category = CharUnicodeInfo.GetUnicodeCategory(character);
 
-            if (category == UnicodeCategory.NonSpacingMark)
+            if (category is UnicodeCategory.NonSpacingMark)
                 continue;
 
             if (character is '&')

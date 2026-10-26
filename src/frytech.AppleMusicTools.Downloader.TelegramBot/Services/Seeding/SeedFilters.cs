@@ -6,9 +6,7 @@ namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Seeding;
 
 public sealed class SeedFilters
 {
-    private static readonly Regex MarkerRegex = new(
-        @"[\(\[\{]([^\)\]\}]+)[\)\]\}]",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex MarkerRegex = new(@"[\(\[\{]([^\)\]\}]+)[\)\]\}]", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private readonly SeedFilterSettings _settings;
     private readonly IReadOnlyList<Regex> _albumPatterns;
@@ -16,9 +14,7 @@ public sealed class SeedFilters
 
     public SeedFilters(AppSettings.SeedSection settings)
     {
-        _settings = new SeedFilterSettings(
-            settings.IncludeSingles,
-            settings.MinTrackSeconds);
+        _settings = new SeedFilterSettings(settings.IncludeSingles, settings.MinTrackSeconds);
 
         _albumPatterns = BuildPatterns(settings.ExcludeAlbumPatterns);
         _trackPatterns = BuildPatterns(settings.ExcludeTrackPatterns);
@@ -27,9 +23,6 @@ public sealed class SeedFilters
     public bool ShouldIncludeAlbum(Album album)
     {
         var attributes = album.Attributes;
-
-        if (attributes is null)
-            return false;
 
         if (attributes.TrackCount <= 0)
             return false;
@@ -43,9 +36,6 @@ public sealed class SeedFilters
     public bool ShouldIncludeSong(Song song)
     {
         var attributes = song.Attributes;
-
-        if (attributes is null)
-            return false;
 
         if (attributes.Duration.TotalSeconds < _settings.MinTrackSeconds)
             return false;
