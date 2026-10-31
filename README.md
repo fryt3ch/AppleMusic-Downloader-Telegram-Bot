@@ -306,18 +306,31 @@ After a result appears, use the inline buttons to download a song, download a wh
 
 ## Seeding popular artists
 
-The bot can pre-fill its cache from a bundled list of 5000 popular artists. For each artist it finds the Apple Music artist, walks studio albums and singles, filters out live/remix/deluxe/compilation releases, and downloads every remaining track into the normal cache (SQLite + storage chat). No Telegram messages are needed.
+The bot can pre-fill its cache from an artist list. For each artist it finds the Apple Music artist, walks studio albums and singles, filters out live/remix/deluxe/compilation releases, and downloads every remaining track into the normal cache (SQLite + storage chat). No Telegram messages are needed.
 
-The list is ordered by popularity. Sources: ListenBrainz sitewide all-time top artists plus the Last.fm HetRec 2011 dataset aggregated by listen count. See `Seed/top-artists-5000.txt`. You can edit it or point `SEED__ARTISTS_FILE` at your own list. Use `Seed/artist-overrides.tsv` for ambiguous names (`artist name<TAB>Apple Music artist ID or URL`).
+The default list is `data/artists.txt`, ordered by popularity. Sources: ListenBrainz sitewide all-time top artists plus the Last.fm HetRec 2011 dataset aggregated by listen count. You can edit it or point `SEED__ARTISTS_FILE` at your own list. With Docker Compose, `data/artists.txt` resolves to `/app/data/artists.txt` inside the container and to `./data/bot/artists.txt` on the host.
+
+Each line is either an artist name or `artist name | Apple Music artist ID or URL`:
+
+```text
+The Beatles
+Ye | 2715720
+Queen | https://music.apple.com/kz/artist/queen/32940
+```
+
+Lines starting with `#` and blank lines are ignored. The optional second column pins ambiguous names to a specific Apple Music artist. If the ID or URL cannot be parsed, the artist is still processed by name and a warning is logged.
 
 ### Quick smoke test
 
-Check gamdl and the artist pipeline with one artist and a few tracks:
+The seeder runs as a background hosted service; the old `--seed` CLI flag no longer exists. To run it one-shot, start the container with seeding enabled and stop it when done:
 
 ```bash
-docker compose run --rm applemusic-bot --seed \
-  --SEED__MAX_ARTISTS=1 \
-  --SEED__MAX_SONGS=3
+docker compose run --rm \
+  -e SEED__ENABLED=true \
+  -e SEED__MAX_ARTISTS=1 \
+  -e SEED__MAX_SONGS=3 \
+  -e SEED__EXIT_WHEN_DONE=true \
+  applemusic-bot
 ```
 
 The artist is left as `partial` in `data/seed-state.json`, so a later full run will continue it.
@@ -329,9 +342,11 @@ Stop the bot first so the seeder is the only process writing to SQLite:
 ```bash
 docker compose stop applemusic-bot
 
-docker compose run --rm applemusic-bot --seed \
-  --SEED__MAX_ARTISTS=50 \
-  --SEED__EXIT_WHEN_DONE=true
+docker compose run --rm \
+  -e SEED__ENABLED=true \
+  -e SEED__MAX_ARTISTS=50 \
+  -e SEED__EXIT_WHEN_DONE=true \
+  applemusic-bot
 
 docker compose up -d applemusic-bot
 ```
@@ -340,6 +355,7 @@ Useful settings for the first run:
 
 ```dotenv
 SEED__PROVIDER=gamdl
+SEED__ARTISTS_FILE=data/artists.txt
 DOWNLOADER__GAMDL__COOKIES_PATH=/app/data/apple_cookies.txt
 DOWNLOADER__MAX_CONCURRENCY=6
 DOWNLOADER__DELAY_AFTER_DOWNLOAD_SECONDS=0
@@ -356,8 +372,11 @@ After the first 50 look good:
 ```bash
 docker compose stop applemusic-bot
 
-docker compose run --rm applemusic-bot --seed \
-  --SEED__MAX_ARTISTS=0
+docker compose run --rm \
+  -e SEED__ENABLED=true \
+  -e SEED__MAX_ARTISTS=0 \
+  -e SEED__EXIT_WHEN_DONE=true \
+  applemusic-bot
 
 docker compose up -d applemusic-bot
 ```
@@ -416,7 +435,7 @@ Seeding all 5000 artists can produce hundreds of thousands of tracks and take da
 │       ├── Telegram/
 │       └── Program.cs
 ├── data/
-│   ├── bot/                   # app.db, apple_cookies.txt, youtube_cookies.txt
+│   ├── bot/                   # app.db, cookies, artists.txt, seed state
 │   └── telegram/              # local Bot API data
 ├── .env.example
 ├── docker-compose.yml
