@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using frytech.AppleMusic.API.Models.Resources;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
@@ -14,9 +16,15 @@ public sealed class YtDlpSongFileProvider : SongFileProviderBase
     private const string BridgeScriptPath = "/app/ytdlp-bridge.py";
     private const string OutputExtension = ".m4a";
 
+    private static readonly JsonSerializerOptions MetadataJsonOptions = new()
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
+
     public override string ProviderName => Name;
 
     private readonly AppSettings _appSettings;
+    private readonly AppleMusicTagMetadataBuilder _metadataBuilder;
     private readonly PythonProcessRunner _runner;
     private readonly ILogger<YtDlpSongFileProvider> _logger;
 
@@ -24,11 +32,13 @@ public sealed class YtDlpSongFileProvider : SongFileProviderBase
         IOptions<AppSettings> appSettings,
         AppleMusicCatalog catalog,
         SongFileProviderLimiter limiter,
+        AppleMusicTagMetadataBuilder metadataBuilder,
         PythonProcessRunner runner,
         ILogger<YtDlpSongFileProvider> logger)
         : base(catalog, limiter)
     {
         _appSettings = appSettings.Value;
+        _metadataBuilder = metadataBuilder;
         _runner = runner;
         _logger = logger;
     }
@@ -37,15 +47,32 @@ public sealed class YtDlpSongFileProvider : SongFileProviderBase
     {
         _logger.LogDebug("Downloading song {SongId} '{Artist} - {Title}' via {Provider}", song.Id, song.Attributes.ArtistName, song.Attributes.Name, ProviderName);
 
-        var trackStream = await DownloadTrackAsStreamAsync(song.Id, store, cancellationToken);
+        var metadata = _metadataBuilder.Build(song);
+        var metadataPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.json");
 
-        var fileName = SongFileNameBuilder.BuildFileName(song, OutputExtension);
-        var songFile = new SongFile(song, fileName, trackStream, ProviderName);
+        try
+        {
+            await File.WriteAllTextAsync(
+                metadataPath,
+                JsonSerializer.Serialize(metadata, MetadataJsonOptions),
+                cancellationToken);
 
-        return songFile;
+            var trackStream = await DownloadTrackAsStreamAsync(song.Id, metadataPath, cancellationToken);
+            var fileName = SongFileNameBuilder.BuildFileName(song, OutputExtension);
+
+            return new SongFile(song, fileName, trackStream, ProviderName);
+        }
+        finally
+        {
+            if (File.Exists(metadataPath))
+                File.Delete(metadataPath);
+        }
     }
 
-    private async Task<Stream> DownloadTrackAsStreamAsync(string songId, string store, CancellationToken cancellationToken)
+    private async Task<Stream> DownloadTrackAsStreamAsync(
+        string songId,
+        string metadataPath,
+        CancellationToken cancellationToken)
     {
         var tempDir = Path.GetTempPath();
         var uniqueFileName = $"{Guid.NewGuid()}{OutputExtension}";
@@ -55,7 +82,7 @@ public sealed class YtDlpSongFileProvider : SongFileProviderBase
 
         var result = await _runner.RunAsync(
             BridgeScriptPath,
-            [songId, store, fullOutputPath, cookiesPath],
+            [metadataPath, fullOutputPath, cookiesPath],
             cancellationToken);
 
         if (!string.IsNullOrWhiteSpace(result.StandardError))

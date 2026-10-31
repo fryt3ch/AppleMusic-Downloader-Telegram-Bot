@@ -45,6 +45,11 @@ public class AlbumAttributes : IAttributes, IHasNameAttribute, IHasArtworkAttrib
     public List<string> GenreNames { get; set; }
 
     /// <summary>
+    /// (Required) Indicates whether the album is a compilation.
+    /// </summary>
+    public bool IsCompilation { get; set; }
+
+    /// <summary>
     /// (Required) Indicates whether the album is complete. If true, the album is complete; otherwise, it is not. An album is complete if it contains all its tracks and songs.
     /// </summary>
     public bool IsComplete { get; set; }

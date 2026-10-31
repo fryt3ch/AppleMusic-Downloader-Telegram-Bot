@@ -15,6 +15,11 @@ public class SongAttributes : ITrackAttributes
     public string AlbumName { get; set; }
 
     /// <summary>
+    /// The name of the album’s artist.
+    /// </summary>
+    public string? AlbumArtistName { get; set; }
+
+    /// <summary>
     /// (Required) The artist’s name.
     /// </summary>
     public string ArtistName { get; set; }
@@ -37,6 +42,7 @@ public class SongAttributes : ITrackAttributes
     /// <summary>
     /// (Required) The disc number the song appears on.
     /// </summary>
+    [JsonPropertyName("discNumber")]
     public int DiskNumber { get; set; }
 
     /// <summary>

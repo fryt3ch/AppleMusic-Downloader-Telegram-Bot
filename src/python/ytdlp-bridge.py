@@ -1,21 +1,20 @@
-import asyncio
 import contextlib
 import io
+import json
 import os
 import re
 import shutil
 import sys
 import tempfile
+import urllib.error
+import urllib.request
 from difflib import SequenceMatcher
 from pathlib import Path
 
-import httpx
 import yt_dlp
-from gamdl.api import AppleMusicApi
-from gamdl.downloader import AppleMusicBaseDownloader
-from gamdl.interface import AppleMusicBaseInterface, AppleMusicInterface, AppleMusicSongInterface
-from gamdl.interface.enums import CoverFormat
-from mutagen.mp4 import MP4
+from gamdl.interface.enums import MediaRating, MediaType
+from gamdl.interface.types import MediaTags
+from mutagen.mp4 import MP4, MP4Cover
 from yt_dlp.cookies import YoutubeDLCookieJar
 
 try:
@@ -24,7 +23,7 @@ except ImportError:
     fcntl = None
 
 SEARCH_RESULT_LIMIT = 5
-APPLE_MUSIC_LANGUAGE = "en-US"
+TAG_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 _NOISE_PATTERN = re.compile(
     r"\((?:[^)]*)\)|\[(?:[^\]]*)\]",
@@ -302,95 +301,81 @@ class CookieSession:
         return False
 
 
-def read_media_user_token(cookie_path):
-    if not cookie_path or not os.path.isfile(cookie_path):
+def load_metadata(path):
+    with open(path, encoding="utf-8") as metadata_file:
+        return json.load(metadata_file)
+
+
+def build_media_tags(metadata):
+    media_type = metadata.get("media_type")
+    rating = metadata.get("rating")
+
+    return MediaTags(
+        album=metadata.get("album"),
+        album_artist=metadata.get("album_artist"),
+        album_id=metadata.get("album_id"),
+        album_sort=metadata.get("album_sort"),
+        artist=metadata.get("artist"),
+        artist_id=metadata.get("artist_id"),
+        artist_sort=metadata.get("artist_sort"),
+        comment=metadata.get("comment"),
+        compilation=metadata.get("compilation"),
+        composer=metadata.get("composer"),
+        composer_id=metadata.get("composer_id"),
+        composer_sort=metadata.get("composer_sort"),
+        copyright=metadata.get("copyright"),
+        date=metadata.get("date"),
+        disc=metadata.get("disc"),
+        disc_total=metadata.get("disc_total"),
+        gapless=metadata.get("gapless"),
+        genre=metadata.get("genre"),
+        genre_id=metadata.get("genre_id"),
+        lyrics=metadata.get("lyrics"),
+        media_type=MediaType(media_type) if media_type is not None else None,
+        rating=MediaRating(rating) if rating is not None else None,
+        storefront=metadata.get("storefront"),
+        title=metadata.get("title"),
+        title_id=metadata.get("title_id"),
+        title_sort=metadata.get("title_sort"),
+        track=metadata.get("track"),
+        track_total=metadata.get("track_total"),
+        xid=metadata.get("xid"),
+    )
+
+
+def format_cover_url(cover_url):
+    if not cover_url:
         return None
 
-    with open(cookie_path, encoding="utf-8", errors="ignore") as cookies_file:
-        for raw_line in cookies_file:
-            line = raw_line.rstrip("\r\n")
-
-            if line.startswith("#HttpOnly_"):
-                line = line[len("#HttpOnly_"):]
-            elif line.startswith("#") or not line:
-                continue
-
-            parts = line.split("\t")
-
-            if (
-                len(parts) >= 7
-                and parts[5] == "media-user-token"
-                and "music.apple.com" in parts[0]
-            ):
-                return parts[6]
-
-    return None
+    return re.sub(r"/\{w\}x\{h\}([a-z]{2})\.jpg", "/1200x1200bb.jpg", cover_url)
 
 
-async def fetch_apple_music_media(cookie_path, song_id, store):
-    token = os.environ.get("APPLE_MUSIC__API_TOKEN", "").strip()
-    if not token:
-        raise RuntimeError("APPLE_MUSIC__API_TOKEN is not set")
-
-    media_user_token = read_media_user_token(cookie_path)
-    if not media_user_token:
-        raise RuntimeError(
-            "media-user-token cookie was not found in the yt-dlp cookies file"
-        )
-
-    store = store.strip().lower() or os.environ.get("APPLE_MUSIC__DEFAULT_STORE", "us").strip().lower()
-
-    headers = {
-        "authorization": f"Bearer {token}",
-        "origin": "https://music.apple.com",
-        "cookie": f"media-user-token={media_user_token}",
-    }
-
-    client = httpx.AsyncClient(headers=headers, timeout=60.0)
+def download_cover(cover_url):
+    if not cover_url:
+        return None
 
     try:
-        apple_music_api = AppleMusicApi(
-            client=client,
-            token=token,
-            storefront=store,
-            language=APPLE_MUSIC_LANGUAGE,
-            media_user_token=media_user_token,
-        )
-        base_interface = AppleMusicBaseInterface(
-            apple_music_api=apple_music_api,
-            itunes_api=None,
-            wrapper_api=None,
-            cover_format=CoverFormat.JPG,
-            cover_size=1200,
-            cdm=None,
-        )
-        song_interface = AppleMusicSongInterface(
-            base=base_interface,
-            skip_stream_info=True,
-        )
-        interface = AppleMusicInterface(
-            song=song_interface,
-            music_video=None,
-            uploaded_video=None,
-        )
-        base_downloader = AppleMusicBaseDownloader(interface=interface)
+        with urllib.request.urlopen(cover_url, timeout=30) as response:
+            return response.read()
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            return None
 
-        song_url = f"https://music.apple.com/{store}/song/{song_id}"
-        media = None
+        raise
 
-        async for item in interface.get_media_from_url(song_url):
-            if item.error:
-                raise item.error
 
-            if not item.partial:
-                media = item
+def write_tags(path, tags, cover_bytes):
+    mp4 = MP4(path)
 
-        if media is None or media.tags is None:
-            raise RuntimeError("failed to fetch Apple Music metadata")
+    if mp4.tags is not None:
+        mp4.tags.delete(str(path))
+        mp4 = MP4(path)
 
-        return media, base_downloader
-    finally:
-        await client.aclose()
+    if cover_bytes:
+        mp4["covr"] = [MP4Cover(cover_bytes, imageformat=MP4Cover.FORMAT_JPEG)]
+
+    mp4.update(tags.as_mp4_tags(TAG_DATE_FORMAT))
+    mp4.save()
 
 
 def download_from_youtube(cookie_source, artist, title, expected_duration, custom_output_path):
@@ -433,70 +418,45 @@ def download_from_youtube(cookie_source, artist, title, expected_duration, custo
         raise RuntimeError(f"Output file was not produced at {custom_output_path}")
 
 
-def clear_mp4_tags(path):
-    mp4 = MP4(path)
+def run_download(metadata, cookie_source, custom_output_path):
+    artist = metadata.get("artist") or ""
+    title = metadata.get("title") or ""
+    duration = metadata.get("duration_seconds") or 0.0
 
-    if mp4.tags is not None:
-        mp4.tags.delete(str(path))
-
-
-async def run_download(cookie_source, apple_cookie_path, song_id, store, custom_output_path):
-    media, base_downloader = await fetch_apple_music_media(
-        apple_cookie_path,
-        song_id,
-        store,
-    )
-
-    attributes = media.media_metadata.get("attributes", {})
-    artist = attributes.get("artistName") or ""
-    title = attributes.get("name") or ""
-    duration_ms = attributes.get("durationInMillis")
-    expected_duration = float(duration_ms) / 1000 if duration_ms else 0.0
-
-    await asyncio.to_thread(
-        download_from_youtube,
+    download_from_youtube(
         cookie_source,
         artist,
         title,
-        expected_duration,
+        float(duration),
         custom_output_path,
     )
 
-    cover_bytes = None
-    if media.cover and media.cover.url:
-        cover_bytes = await base_downloader.interface.base.get_cover_bytes(media.cover.url)
+    tags = build_media_tags(metadata)
+    cover_bytes = download_cover(format_cover_url(metadata.get("cover_url")))
 
-    clear_mp4_tags(custom_output_path)
-    await base_downloader.apply_tags(str(custom_output_path), media.tags, cover_bytes)
+    write_tags(custom_output_path, tags, cover_bytes)
 
     print("SUCCESS")
 
 
 def main():
-    if len(sys.argv) < 5:
+    if len(sys.argv) < 4:
         print("ERROR: Missing arguments")
         return
 
-    song_id = sys.argv[1].strip()
-    store = sys.argv[2].strip()
-    custom_output_path = Path(sys.argv[3]).resolve()
-    cookies_path = sys.argv[4].strip() if len(sys.argv) > 4 else ""
+    metadata_path = sys.argv[1].strip()
+    custom_output_path = Path(sys.argv[2]).resolve()
+    cookies_path = sys.argv[3].strip() if len(sys.argv) > 3 else ""
 
-    if not song_id:
-        print("ERROR: Missing song id")
+    try:
+        metadata = load_metadata(metadata_path)
+    except Exception as error:
+        print_error(error)
         return
 
     try:
         with CookieSession(cookies_path) as cookie_source:
-            asyncio.run(
-                run_download(
-                    cookie_source,
-                    cookie_source or cookies_path,
-                    song_id,
-                    store,
-                    custom_output_path,
-                )
-            )
+            run_download(metadata, cookie_source, custom_output_path)
     except NoSearchResults:
         print("NOT_FOUND: no search results")
     except Exception as error:

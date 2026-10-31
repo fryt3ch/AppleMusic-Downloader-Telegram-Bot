@@ -10,6 +10,8 @@ public enum SongRelationshipType
     Artists,
     [JsonStringEnumMemberName("genres")]
     Genres,
+    [JsonStringEnumMemberName("composers")]
+    Composers,
     [JsonStringEnumMemberName("station")]
     Station
 }

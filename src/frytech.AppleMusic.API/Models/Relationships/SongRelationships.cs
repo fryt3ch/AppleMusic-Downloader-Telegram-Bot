@@ -27,6 +27,11 @@ public class SongRelationships : IRelationships
     public GenreRelationship Genres { get; set; }
 
     /// <summary>
+    /// The composers associated with the song.
+    /// </summary>
+    public ArtistRelationship Composers { get; set; }
+
+    /// <summary>
     /// The station associated with the song. By default, station is not included.
     /// Fetch limits: None (one station)
     /// </summary>

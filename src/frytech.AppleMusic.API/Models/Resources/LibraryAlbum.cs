@@ -1,4 +1,4 @@
-﻿using frytech.AppleMusic.API.Models.Attributes;
+using frytech.AppleMusic.API.Models.Attributes;
 using frytech.AppleMusic.API.Models.Core;
 using frytech.AppleMusic.API.Models.Enums;
 using frytech.AppleMusic.API.Models.Relationships;
@@ -11,6 +11,7 @@ namespace frytech.AppleMusic.API.Models.Resources;
 /// </summary>
 public class LibraryAlbum : Resource, IHasAttributes<LibraryAlbumAttributes>, IHasRelationships<LibraryAlbumRelationships>
 {
+    [JsonIgnore]
     public override ResourceType Type => ResourceType.LibraryAlbums;
     
     public LibraryAlbumAttributes Attributes { get; set; }
