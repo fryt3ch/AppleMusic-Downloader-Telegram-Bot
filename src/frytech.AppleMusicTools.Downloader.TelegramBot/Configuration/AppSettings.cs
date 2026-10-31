@@ -15,6 +15,9 @@ public class AppSettings
     [ConfigurationKeyName("DOWNLOADER")]
     public DownloaderSection Downloader { get; init; } = new();
 
+    [ConfigurationKeyName("SEED")]
+    public SeedSection Seed { get; init; } = new();
+
     public class TelegramSection
     {
         [ConfigurationKeyName("BOT_TOKEN")]
@@ -196,6 +199,99 @@ public class AppSettings
         }
     }
 
+    public class SeedSection
+    {
+        [ConfigurationKeyName("ENABLED")]
+        public bool Enabled { get; init; }
+
+        [ConfigurationKeyName("PROVIDER")]
+        public string? Provider { get; init; }
+
+        [ConfigurationKeyName("ARTISTS_FILE")]
+        public string ArtistsFile { get; init; } = "data/artists.txt";
+
+        [ConfigurationKeyName("START_INDEX")]
+        public int StartIndex { get; init; }
+
+        [ConfigurationKeyName("MAX_ARTISTS")]
+        public int MaxArtists { get; init; } = 50;
+
+        [ConfigurationKeyName("MAX_SONGS")]
+        public int MaxSongs { get; init; }
+
+        [ConfigurationKeyName("MAX_SONGS_PER_ARTIST")]
+        public int MaxSongsPerArtist { get; init; }
+
+        [ConfigurationKeyName("CONCURRENCY")]
+        public int Concurrency { get; init; } = 8;
+
+        [ConfigurationKeyName("CATALOG_CONCURRENCY")]
+        public int CatalogConcurrency { get; init; } = 4;
+
+        [ConfigurationKeyName("MAX_ATTEMPTS")]
+        public int MaxAttempts { get; init; } = 3;
+
+        [ConfigurationKeyName("MAX_CONSECUTIVE_FAILURES")]
+        public int MaxConsecutiveFailures { get; init; } = 20;
+
+        [ConfigurationKeyName("STATE_PATH")]
+        public string StatePath { get; init; } = "data/seed-state.json";
+
+        [ConfigurationKeyName("DRY_RUN")]
+        public bool DryRun { get; init; }
+
+        [ConfigurationKeyName("EXIT_WHEN_DONE")]
+        public bool ExitWhenDone { get; init; }
+
+        [ConfigurationKeyName("INCLUDE_SINGLES")]
+        public bool IncludeSingles { get; init; } = true;
+
+        [ConfigurationKeyName("MIN_TRACK_SECONDS")]
+        public int MinTrackSeconds { get; init; } = 30;
+
+        [ConfigurationKeyName("EXCLUDE_ALBUM_PATTERNS")]
+        public string ExcludeAlbumPatterns { get; init; } =
+            "live,remix,deluxe,super deluxe,anniversary,expanded,compilation,greatest hits,best of,essential,anthology,collection,box set,demo,rehearsal,session,instrumental,karaoke,commentary,tour";
+
+        [ConfigurationKeyName("EXCLUDE_TRACK_PATTERNS")]
+        public string ExcludeTrackPatterns { get; init; } =
+            "live,remix,instrumental,karaoke,commentary,demo,rehearsal,take";
+
+        [ConfigurationKeyName("ARTIST_MATCH_THRESHOLD")]
+        public double ArtistMatchThreshold { get; init; } = 0.82;
+
+        [ConfigurationKeyName("FALLBACK_ARTIST_SONGS")]
+        public bool FallbackArtistSongs { get; init; } = true;
+
+        [ConfigurationKeyName("FALLBACK_ARTIST_SONGS_LIMIT")]
+        public int FallbackArtistSongsLimit { get; init; } = 50;
+
+        public class SeedSectionValidator : AbstractValidator<SeedSection>
+        {
+            public SeedSectionValidator()
+            {
+                RuleFor(x => x.Provider)
+                    .Must(provider => string.IsNullOrWhiteSpace(provider) ||
+                                      SongFileProviderRegistry.Names.Contains(provider, StringComparer.OrdinalIgnoreCase))
+                    .WithMessage(_ => $"Seed provider must be empty or one of: {string.Join(", ", SongFileProviderRegistry.Names)}.");
+
+                RuleFor(x => x.ArtistsFile).NotEmpty();
+                RuleFor(x => x.StatePath).NotEmpty();
+                RuleFor(x => x.StartIndex).GreaterThanOrEqualTo(0);
+                RuleFor(x => x.MaxArtists).GreaterThanOrEqualTo(0);
+                RuleFor(x => x.MaxSongs).GreaterThanOrEqualTo(0);
+                RuleFor(x => x.MaxSongsPerArtist).GreaterThanOrEqualTo(0);
+                RuleFor(x => x.Concurrency).InclusiveBetween(1, 32);
+                RuleFor(x => x.CatalogConcurrency).InclusiveBetween(1, 16);
+                RuleFor(x => x.MaxAttempts).InclusiveBetween(1, 10);
+                RuleFor(x => x.MaxConsecutiveFailures).InclusiveBetween(1, 1000);
+                RuleFor(x => x.MinTrackSeconds).InclusiveBetween(0, 3600);
+                RuleFor(x => x.ArtistMatchThreshold).InclusiveBetween(0.5, 1.0);
+                RuleFor(x => x.FallbackArtistSongsLimit).InclusiveBetween(0, 1000);
+            }
+        }
+    }
+
     public class DownloaderSectionValidator : AbstractValidator<DownloaderSection>
     {
         private static readonly IReadOnlyList<string> AllowedProviders = SongFileProviderRegistry.Names;
@@ -238,5 +334,24 @@ public class AppSettingsValidator : AbstractValidator<AppSettings>
         RuleFor(x => x.Telegram)
             .NotEmpty()
             .SetValidator(new AppSettings.TelegramSectionValidator());
+
+        RuleFor(x => x.Seed)
+            .NotEmpty()
+            .SetValidator(new AppSettings.SeedSection.SeedSectionValidator());
+
+        RuleFor(x => x).Custom((settings, context) =>
+        {
+            var seedProvider = string.IsNullOrWhiteSpace(settings.Seed.Provider)
+                ? settings.Downloader.Provider
+                : settings.Seed.Provider;
+
+            if (string.Equals(seedProvider, GamdlSongFileProvider.Name, StringComparison.OrdinalIgnoreCase) &&
+                string.IsNullOrWhiteSpace(settings.Downloader.Gamdl.CookiesPath))
+            {
+                context.AddFailure(
+                    "DOWNLOADER__GAMDL__COOKIES_PATH",
+                    "DOWNLOADER__GAMDL__COOKIES_PATH is required when seeding with gamdl.");
+            }
+        });
     }
 }

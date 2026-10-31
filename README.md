@@ -23,6 +23,7 @@
 - [Configuration](#configuration)
 - [How It Works](#how-it-works)
 - [Usage](#usage)
+- [Seeding popular artists](#seeding-popular-artists)
 - [Troubleshooting](#troubleshooting)
 - [Project Layout](#project-layout)
 - [License](#license)
@@ -303,6 +304,110 @@ After a result appears, use the inline buttons to download a song, download a wh
 |---|---|
 | `/start` | Welcome message with quick actions. |
 
+## Seeding popular artists
+
+The bot can pre-fill its cache from an artist list. For each artist it finds the Apple Music artist, walks studio albums and singles, filters out live/remix/deluxe/compilation releases, and downloads every remaining track into the normal cache (SQLite + storage chat). No Telegram messages are needed.
+
+The default list is `data/artists.txt`, ordered by popularity. Sources: ListenBrainz sitewide all-time top artists plus the Last.fm HetRec 2011 dataset aggregated by listen count. You can edit it or point `SEED__ARTISTS_FILE` at your own list. With Docker Compose, `data/artists.txt` resolves to `/app/data/artists.txt` inside the container and to `./data/bot/artists.txt` on the host.
+
+Each line is either an artist name or `artist name | Apple Music artist ID or URL`:
+
+```text
+The Beatles
+Ye | 2715720
+Queen | https://music.apple.com/kz/artist/queen/32940
+```
+
+Lines starting with `#` and blank lines are ignored. The optional second column pins ambiguous names to a specific Apple Music artist. If the ID or URL cannot be parsed, the artist is still processed by name and a warning is logged.
+
+### Quick smoke test
+
+The seeder runs as a background hosted service; the old `--seed` CLI flag no longer exists. To run it one-shot, start the container with seeding enabled and stop it when done:
+
+```bash
+docker compose run --rm \
+  -e SEED__ENABLED=true \
+  -e SEED__MAX_ARTISTS=1 \
+  -e SEED__MAX_SONGS=3 \
+  -e SEED__EXIT_WHEN_DONE=true \
+  applemusic-bot
+```
+
+The artist is left as `partial` in `data/seed-state.json`, so a later full run will continue it.
+
+### First run: 50 artists
+
+Stop the bot first so the seeder is the only process writing to SQLite:
+
+```bash
+docker compose stop applemusic-bot
+
+docker compose run --rm \
+  -e SEED__ENABLED=true \
+  -e SEED__MAX_ARTISTS=50 \
+  -e SEED__EXIT_WHEN_DONE=true \
+  applemusic-bot
+
+docker compose up -d applemusic-bot
+```
+
+Useful settings for the first run:
+
+```dotenv
+SEED__PROVIDER=gamdl
+SEED__ARTISTS_FILE=data/artists.txt
+DOWNLOADER__GAMDL__COOKIES_PATH=/app/data/apple_cookies.txt
+DOWNLOADER__MAX_CONCURRENCY=6
+DOWNLOADER__DELAY_AFTER_DOWNLOAD_SECONDS=0
+SEED__CONCURRENCY=8
+SEED__CATALOG_CONCURRENCY=4
+```
+
+`SEED__PROVIDER=gamdl` makes the seeder use gamdl while normal bot requests keep using `DOWNLOADER__PROVIDER`. If you want everything on gamdl, set `DOWNLOADER__PROVIDER=gamdl` as well.
+
+### Full run
+
+After the first 50 look good:
+
+```bash
+docker compose stop applemusic-bot
+
+docker compose run --rm \
+  -e SEED__ENABLED=true \
+  -e SEED__MAX_ARTISTS=0 \
+  -e SEED__EXIT_WHEN_DONE=true \
+  applemusic-bot
+
+docker compose up -d applemusic-bot
+```
+
+`SEED__MAX_ARTISTS=0` means all artists. Already processed artists are skipped from `data/seed-state.json`.
+
+### Background mode
+
+To keep the bot online while seeding, set:
+
+```dotenv
+SEED__ENABLED=true
+SEED__MAX_ARTISTS=50
+```
+
+Then `docker compose up -d --build`. The seeder shares the provider limiter with normal bot downloads, so user requests may be slower while it runs.
+
+### Progress, stop, resume
+
+- Progress is saved after each artist to `data/seed-state.json`.
+- Unmatched artists are written to `data/seed-unmatched-artists.txt`, failed tracks to `data/seed-failed-songs.txt`.
+- `data/seed.lock` prevents two seeder instances from running at the same time.
+- Stop with `Ctrl+C` or `docker compose stop applemusic-bot`; rerun the same command to continue.
+- A circuit breaker stops the run after `SEED__MAX_CONSECUTIVE_FAILURES` failures in a row (expired gamdl cookies, missing subscription, or rate limits).
+
+### Filters and scale
+
+By default only studio albums and singles/EPs are used. Live, remix, deluxe, compilation, greatest-hits, demo, rehearsal, instrumental, karaoke, and tour releases are excluded via `SEED__EXCLUDE_ALBUM_PATTERNS`. Remastered editions are kept because they are often the only available version of a studio album. Track-level markers are filtered via `SEED__EXCLUDE_TRACK_PATTERNS`. Remove patterns if you want a broader crawl.
+
+Seeding all 5000 artists can produce hundreds of thousands of tracks and take days or weeks. Start with 50, watch the logs and storage chat size, then increase. If you see `403`/`429`, lower `DOWNLOADER__MAX_CONCURRENCY` and `SEED__CONCURRENCY`.
+
 ## Troubleshooting
 
 | Symptom | Fix |
@@ -330,7 +435,7 @@ After a result appears, use the inline buttons to download a song, download a wh
 │       ├── Telegram/
 │       └── Program.cs
 ├── data/
-│   ├── bot/                   # app.db, apple_cookies.txt, youtube_cookies.txt
+│   ├── bot/                   # app.db, cookies, artists.txt, seed state
 │   └── telegram/              # local Bot API data
 ├── .env.example
 ├── docker-compose.yml

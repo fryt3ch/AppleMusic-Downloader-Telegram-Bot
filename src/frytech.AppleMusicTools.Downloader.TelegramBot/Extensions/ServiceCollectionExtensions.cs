@@ -9,6 +9,7 @@ using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Catalog;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Downloads;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests.Presentation;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Seeding;
 using frytech.Essentials.FluentValidation.Tools.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -62,7 +63,8 @@ public static class ServiceCollectionExtensions
             .AddScoped<ISongStorage, TelegramStorage>()
             .AddSongFileProviders()
             .AddDownloads()
-            .AddRequests();
+            .AddRequests()
+            .AddSeeding();
 
         return services;
     }
@@ -75,6 +77,18 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<SongDownloadWorker>();
         services.AddHostedService<DownloadPositionUpdater>();
         services.AddScoped<SongSender>();
+
+        return services;
+    }
+
+    public static IServiceCollection AddSeeding(this IServiceCollection services)
+    {
+        services.AddSingleton<SeedArtistListLoader>();
+        services.AddSingleton<SeedStateStore>();
+        services.AddSingleton<SeedReportWriter>();
+        services.AddSingleton<SeedRunner>();
+        services.AddScoped<SeedCatalogReader>();
+        services.AddHostedService<SeedBackgroundService>();
 
         return services;
     }
