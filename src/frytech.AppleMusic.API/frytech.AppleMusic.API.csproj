@@ -6,8 +6,6 @@
         <Nullable>enable</Nullable>
         <Title>AppleMusic API</Title>
         <Description>AppleMusic API for .NET</Description>
-        <RepositoryUrl>https://github.com/fryt3ch/AppleMusic-API</RepositoryUrl>
-        <Version>1.0.3</Version>
     </PropertyGroup>
 
     <ItemGroup>
