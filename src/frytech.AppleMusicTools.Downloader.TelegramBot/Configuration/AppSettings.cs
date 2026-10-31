@@ -315,6 +315,7 @@ public class AppSettings
                     .NotEmpty()
                     .WithMessage("DOWNLOADER__GAMDL__COOKIES_PATH is required when PROVIDER=gamdl.");
             });
+
         }
     }
 }
@@ -352,6 +353,7 @@ public class AppSettingsValidator : AbstractValidator<AppSettings>
                     "DOWNLOADER__GAMDL__COOKIES_PATH",
                     "DOWNLOADER__GAMDL__COOKIES_PATH is required when seeding with gamdl.");
             }
+
         });
     }
 }

@@ -1,9 +1,7 @@
 using frytech.AppleMusic.API.Models.Enums;
 using frytech.AppleMusic.API.Models.Resources;
-using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Catalog;
-using Microsoft.Extensions.Options;
 
 namespace frytech.AppleMusicTools.Downloader.TelegramBot.Services.Seeding;
 
@@ -93,7 +91,7 @@ public sealed class SeedCatalogReader
 
             foreach (var resource in page.Items)
             {
-                if (resource.ResourceType == ResourceType.Songs && resource is Song song && seen.Add(song.Id))
+                if (resource.Type is ResourceType.Songs && resource is Song song && seen.Add(song.Id))
                     songs.Add(song);
             }
 
@@ -132,7 +130,7 @@ public sealed class SeedCatalogReader
 
             foreach (var resource in page)
             {
-                if (resource.ResourceType == ResourceType.Songs && resource is Song song && seen.Add(song.Id))
+                if (resource.Type is ResourceType.Songs && resource is Song song && seen.Add(song.Id))
                     songs.Add(song);
 
                 if (songs.Count >= limit)

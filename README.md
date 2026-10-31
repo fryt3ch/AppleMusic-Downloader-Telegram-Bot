@@ -79,7 +79,7 @@ DOWNLOADER__PROVIDER=ytdlp
 DOWNLOADER__YTDLP__COOKIES_PATH=/app/data/youtube_cookies.txt
 ```
 
-For Apple Music audio, set `DOWNLOADER__PROVIDER=gamdl` and point `DOWNLOADER__GAMDL__COOKIES_PATH` at your Apple cookies. The JWT token is required in both modes; an Apple Music subscription is required only for `gamdl`.
+For Apple Music audio, set `DOWNLOADER__PROVIDER=gamdl` and point `DOWNLOADER__GAMDL__COOKIES_PATH` at your Apple cookies. The JWT token is required in both modes. The `ytdlp` provider downloads audio from YouTube and tags it with public Apple Music catalog metadata and cover art. It does not require an Apple Music subscription, Apple cookies, or lyrics.
 
 ## Requirements
 
@@ -125,6 +125,8 @@ data/bot/youtube_cookies.txt
 ```
 
 Both map to `/app/data/...` inside the container. If you prefer a single file, the compose defaults use `/app/data/cookies.txt`, but separate files avoid accidental overwrites when switching providers.
+
+The `ytdlp` provider uses only its own cookies for YouTube. Apple Music metadata and cover art are fetched by the bot through the public catalog API, so no Apple cookies are needed for `ytdlp`.
 
 Keep `.env` and cookie files out of version control. Both are excluded by the repository's `.gitignore`.
 
@@ -414,6 +416,7 @@ Seeding all 5000 artists can produce hundreds of thousands of tracks and take da
 |---|---|
 | Apple Music search fails with `401` | Refresh `APPLE_MUSIC__API_TOKEN`. |
 | `gamdl` download fails | Check the Apple Music subscription and `apple_cookies.txt`. |
+| `yt-dlp` tags differ from `gamdl` | Expected: without an Apple Music subscription, `ytdlp` omits lyrics, sort fields, `disc_total`, `rating` (unless the catalog provides it), `comments`, `gapless`, `storefront`, and `xid`. |
 | `yt-dlp`: `Sign in to confirm you're not a bot` | Refresh YouTube cookies, use a dedicated account, and make sure the browser and bot use the same egress IP. A flagged datacenter IP may still need a proxy. |
 | YouTube cookies expire after a while | Replace `youtube_cookies.txt` with a fresh export. The bridge persists rotation, but sessions can still be invalidated. |
 | `telegram-bot-api:8081` name not known | Use the public API, or start the `local-api` profile and set `TELEGRAM__SERVER_API_URL`. |

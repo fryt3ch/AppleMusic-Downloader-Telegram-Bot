@@ -1,4 +1,5 @@
-using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using frytech.AppleMusic.API.Models.Resources;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Configuration;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
@@ -15,9 +16,15 @@ public sealed class YtDlpSongFileProvider : SongFileProviderBase
     private const string BridgeScriptPath = "/app/ytdlp-bridge.py";
     private const string OutputExtension = ".m4a";
 
+    private static readonly JsonSerializerOptions MetadataJsonOptions = new()
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
+
     public override string ProviderName => Name;
 
     private readonly AppSettings _appSettings;
+    private readonly AppleMusicTagMetadataBuilder _metadataBuilder;
     private readonly PythonProcessRunner _runner;
     private readonly ILogger<YtDlpSongFileProvider> _logger;
 
@@ -25,35 +32,46 @@ public sealed class YtDlpSongFileProvider : SongFileProviderBase
         IOptions<AppSettings> appSettings,
         AppleMusicCatalog catalog,
         SongFileProviderLimiter limiter,
+        AppleMusicTagMetadataBuilder metadataBuilder,
         PythonProcessRunner runner,
         ILogger<YtDlpSongFileProvider> logger)
         : base(catalog, limiter)
     {
         _appSettings = appSettings.Value;
+        _metadataBuilder = metadataBuilder;
         _runner = runner;
         _logger = logger;
     }
 
-    protected override async Task<SongFile> GetSongFileAsync(Song song, CancellationToken cancellationToken)
+    protected override async Task<SongFile> GetSongFileAsync(Song song, string store, CancellationToken cancellationToken)
     {
         _logger.LogDebug("Downloading song {SongId} '{Artist} - {Title}' via {Provider}", song.Id, song.Attributes.ArtistName, song.Attributes.Name, ProviderName);
 
-        var trackStream = await DownloadTrackAsStreamAsync(
-            song.Attributes.ArtistName,
-            song.Attributes.Name,
-            song.Attributes.Duration.TotalSeconds,
-            cancellationToken);
+        var metadata = _metadataBuilder.Build(song);
+        var metadataPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.json");
 
-        var fileName = SongFileNameBuilder.BuildFileName(song, OutputExtension);
-        var songFile = new SongFile(song, fileName, trackStream, ProviderName);
+        try
+        {
+            await File.WriteAllTextAsync(
+                metadataPath,
+                JsonSerializer.Serialize(metadata, MetadataJsonOptions),
+                cancellationToken);
 
-        return songFile;
+            var trackStream = await DownloadTrackAsStreamAsync(song.Id, metadataPath, cancellationToken);
+            var fileName = SongFileNameBuilder.BuildFileName(song, OutputExtension);
+
+            return new SongFile(song, fileName, trackStream, ProviderName);
+        }
+        finally
+        {
+            if (File.Exists(metadataPath))
+                File.Delete(metadataPath);
+        }
     }
 
     private async Task<Stream> DownloadTrackAsStreamAsync(
-        string artist,
-        string title,
-        double durationSeconds,
+        string songId,
+        string metadataPath,
         CancellationToken cancellationToken)
     {
         var tempDir = Path.GetTempPath();
@@ -64,11 +82,11 @@ public sealed class YtDlpSongFileProvider : SongFileProviderBase
 
         var result = await _runner.RunAsync(
             BridgeScriptPath,
-            [artist, title, durationSeconds.ToString(CultureInfo.InvariantCulture), fullOutputPath, cookiesPath],
+            [metadataPath, fullOutputPath, cookiesPath],
             cancellationToken);
 
         if (!string.IsNullOrWhiteSpace(result.StandardError))
-            _logger.LogWarning("yt-dlp stderr for '{Artist} - {Title}': {Error}", artist, title, result.StandardError);
+            _logger.LogWarning("yt-dlp stderr for song {SongId}: {Error}", songId, result.StandardError);
 
         if (result.ExitCode != 0 || !result.StandardOutput.Contains("SUCCESS"))
         {
@@ -76,7 +94,7 @@ public sealed class YtDlpSongFileProvider : SongFileProviderBase
                 File.Delete(fullOutputPath);
 
             if (result.StandardOutput.Contains("NOT_FOUND"))
-                throw new InvalidOperationException($"yt-dlp could not find a matching track for '{artist} - {title}'.");
+                throw new InvalidOperationException($"yt-dlp could not find a matching track for Apple Music song '{songId}'.");
 
             throw new InvalidOperationException($"yt-dlp bridge failed.\nExitCode: {result.ExitCode}\nOutput: {result.StandardOutput}\nError: {result.StandardError}");
         }

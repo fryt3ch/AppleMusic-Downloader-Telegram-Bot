@@ -204,7 +204,7 @@ public sealed class CallbackQueryHandler
 
                 nextOffset++;
 
-                if (track.ResourceType is ResourceType.Songs && seen.Add(track.Id))
+                if (track.Type is ResourceType.Songs && seen.Add(track.Id))
                 {
                     songIds.Add(track.Id);
                     songOffsets.Add(nextOffset);

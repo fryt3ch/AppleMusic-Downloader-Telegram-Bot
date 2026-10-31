@@ -1,14 +1,20 @@
 import contextlib
 import io
+import json
 import os
 import re
 import shutil
 import sys
 import tempfile
+import urllib.error
+import urllib.request
 from difflib import SequenceMatcher
 from pathlib import Path
 
 import yt_dlp
+from gamdl.interface.enums import MediaRating, MediaType
+from gamdl.interface.types import MediaTags
+from mutagen.mp4 import MP4, MP4Cover
 from yt_dlp.cookies import YoutubeDLCookieJar
 
 try:
@@ -17,6 +23,7 @@ except ImportError:
     fcntl = None
 
 SEARCH_RESULT_LIMIT = 5
+TAG_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 _NOISE_PATTERN = re.compile(
     r"\((?:[^)]*)\)|\[(?:[^\]]*)\]",
@@ -27,6 +34,10 @@ _NOISE_WORDS = {
     "remaster", "remastered", "mv", "m", "explicit", "visualizer",
     "music", "clip", "full", "song",
 }
+
+
+class NoSearchResults(Exception):
+    pass
 
 
 def normalize(text):
@@ -290,24 +301,96 @@ class CookieSession:
         return False
 
 
-def run_download(cookie_source, artist, title, expected_duration, custom_output_path):
+def load_metadata(path):
+    with open(path, encoding="utf-8") as metadata_file:
+        return json.load(metadata_file)
+
+
+def build_media_tags(metadata):
+    media_type = metadata.get("media_type")
+    rating = metadata.get("rating")
+
+    return MediaTags(
+        album=metadata.get("album"),
+        album_artist=metadata.get("album_artist"),
+        album_id=metadata.get("album_id"),
+        album_sort=metadata.get("album_sort"),
+        artist=metadata.get("artist"),
+        artist_id=metadata.get("artist_id"),
+        artist_sort=metadata.get("artist_sort"),
+        comment=metadata.get("comment"),
+        compilation=metadata.get("compilation"),
+        composer=metadata.get("composer"),
+        composer_id=metadata.get("composer_id"),
+        composer_sort=metadata.get("composer_sort"),
+        copyright=metadata.get("copyright"),
+        date=metadata.get("date"),
+        disc=metadata.get("disc"),
+        disc_total=metadata.get("disc_total"),
+        gapless=metadata.get("gapless"),
+        genre=metadata.get("genre"),
+        genre_id=metadata.get("genre_id"),
+        lyrics=metadata.get("lyrics"),
+        media_type=MediaType(media_type) if media_type is not None else None,
+        rating=MediaRating(rating) if rating is not None else None,
+        storefront=metadata.get("storefront"),
+        title=metadata.get("title"),
+        title_id=metadata.get("title_id"),
+        title_sort=metadata.get("title_sort"),
+        track=metadata.get("track"),
+        track_total=metadata.get("track_total"),
+        xid=metadata.get("xid"),
+    )
+
+
+def format_cover_url(cover_url):
+    if not cover_url:
+        return None
+
+    return re.sub(r"/\{w\}x\{h\}([a-z]{2})\.jpg", "/1200x1200bb.jpg", cover_url)
+
+
+def download_cover(cover_url):
+    if not cover_url:
+        return None
+
+    try:
+        with urllib.request.urlopen(cover_url, timeout=30) as response:
+            return response.read()
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            return None
+
+        raise
+
+
+def write_tags(path, tags, cover_bytes):
+    mp4 = MP4(path)
+
+    if mp4.tags is not None:
+        mp4.tags.delete(str(path))
+        mp4 = MP4(path)
+
+    if cover_bytes:
+        mp4["covr"] = [MP4Cover(cover_bytes, imageformat=MP4Cover.FORMAT_JPEG)]
+
+    mp4.update(tags.as_mp4_tags(TAG_DATE_FORMAT))
+    mp4.save()
+
+
+def download_from_youtube(cookie_source, artist, title, expected_duration, custom_output_path):
     output_dir = str(custom_output_path.parent)
     output_stem = custom_output_path.stem
     query = f"{artist} - {title}".strip()
 
-    try:
-        with yt_dlp.YoutubeDL(build_opts(cookie_source)) as ydl:
-            search_result = ydl.extract_info(f"ytsearch{SEARCH_RESULT_LIMIT}:{query}", download=False)
-    except Exception as e:
-        print_error(e)
-        return
+    with yt_dlp.YoutubeDL(build_opts(cookie_source)) as ydl:
+        search_result = ydl.extract_info(f"ytsearch{SEARCH_RESULT_LIMIT}:{query}", download=False)
 
     candidates = [entry for entry in (search_result or {}).get("entries") or [] if entry]
     best = pick_best(candidates, artist, title, expected_duration)
 
     if best is None:
-        print("NOT_FOUND: no search results")
-        return
+        raise NoSearchResults()
 
     video_url = best.get("webpage_url") or f"https://www.youtube.com/watch?v={best.get('id')}"
 
@@ -317,16 +400,11 @@ def run_download(cookie_source, artist, title, expected_duration, custom_output_
         "outtmpl": str(custom_output_path.with_suffix("")),
         "postprocessors": [
             {"key": "FFmpegExtractAudio", "preferredcodec": "m4a"},
-            {"key": "FFmpegMetadata"},
         ],
     })
 
-    try:
-        with yt_dlp.YoutubeDL(download_opts) as ydl:
-            ydl.extract_info(video_url, download=True)
-    except Exception as e:
-        print_error(e)
-        return
+    with yt_dlp.YoutubeDL(download_opts) as ydl:
+        ydl.extract_info(video_url, download=True)
 
     if not custom_output_path.exists():
         candidates_on_disk = list(Path(output_dir).glob(f"{output_stem}.*"))
@@ -337,30 +415,52 @@ def run_download(cookie_source, artist, title, expected_duration, custom_output_
             os.replace(candidates_on_disk[0], custom_output_path)
 
     if not custom_output_path.exists():
-        print(f"ERROR: Output file was not produced at {custom_output_path}")
-        return
+        raise RuntimeError(f"Output file was not produced at {custom_output_path}")
+
+
+def run_download(metadata, cookie_source, custom_output_path):
+    artist = metadata.get("artist") or ""
+    title = metadata.get("title") or ""
+    duration = metadata.get("duration_seconds") or 0.0
+
+    download_from_youtube(
+        cookie_source,
+        artist,
+        title,
+        float(duration),
+        custom_output_path,
+    )
+
+    tags = build_media_tags(metadata)
+    cover_bytes = download_cover(format_cover_url(metadata.get("cover_url")))
+
+    write_tags(custom_output_path, tags, cover_bytes)
 
     print("SUCCESS")
 
 
 def main():
-    if len(sys.argv) < 5:
+    if len(sys.argv) < 4:
         print("ERROR: Missing arguments")
         return
 
-    artist = sys.argv[1]
-    title = sys.argv[2]
+    metadata_path = sys.argv[1].strip()
+    custom_output_path = Path(sys.argv[2]).resolve()
+    cookies_path = sys.argv[3].strip() if len(sys.argv) > 3 else ""
 
     try:
-        expected_duration = float(sys.argv[3])
-    except ValueError:
-        expected_duration = 0.0
+        metadata = load_metadata(metadata_path)
+    except Exception as error:
+        print_error(error)
+        return
 
-    custom_output_path = Path(sys.argv[4]).resolve()
-    cookies_path = sys.argv[5].strip() if len(sys.argv) > 5 else ""
-
-    with CookieSession(cookies_path) as cookie_source:
-        run_download(cookie_source, artist, title, expected_duration, custom_output_path)
+    try:
+        with CookieSession(cookies_path) as cookie_source:
+            run_download(metadata, cookie_source, custom_output_path)
+    except NoSearchResults:
+        print("NOT_FOUND: no search results")
+    except Exception as error:
+        print_error(error)
 
 
 if __name__ == "__main__":

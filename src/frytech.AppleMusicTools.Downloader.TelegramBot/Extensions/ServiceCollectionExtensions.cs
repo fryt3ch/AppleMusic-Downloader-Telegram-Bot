@@ -10,6 +10,7 @@ using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Downloads;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Requests.Presentation;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Services.Seeding;
+using frytech.AppleMusicTools.Downloader.TelegramBot.Services.SongFiles;
 using frytech.Essentials.FluentValidation.Tools.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -61,6 +62,7 @@ public static class ServiceCollectionExtensions
         services
             .AddScoped<AppleMusicCatalog>()
             .AddScoped<ISongStorage, TelegramStorage>()
+            .AddSingleton<AppleMusicTagMetadataBuilder>()
             .AddSongFileProviders()
             .AddDownloads()
             .AddRequests()

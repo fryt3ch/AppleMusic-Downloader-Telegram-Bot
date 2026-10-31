@@ -10,6 +10,7 @@ WORKDIR /src
 
 # Copy solution and project files
 COPY frytech.AppleMusicTools.sln ./
+COPY src/frytech.AppleMusic.API/*.csproj ./src/frytech.AppleMusic.API/
 COPY src/frytech.AppleMusicTools.Downloader.TelegramBot/*.csproj ./src/frytech.AppleMusicTools.Downloader.TelegramBot/
 
 # Restore dependencies

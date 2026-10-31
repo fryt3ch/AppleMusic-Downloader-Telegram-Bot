@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using frytech.AppleMusic.API.Clients.Interfaces;
 using frytech.AppleMusic.API.Models.Core;
+using frytech.AppleMusic.API.Models.Enums.Relationships;
 using frytech.AppleMusic.API.Models.Resources;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Extensions;
 using frytech.AppleMusicTools.Downloader.TelegramBot.Models;
@@ -30,7 +31,12 @@ public class AppleMusicCatalog
     {
         _logger.LogDebug("Fetching Apple Music song {SongId} from store {Store}", id, store);
 
-        var response = await _catalogClient.GetCatalogSong(id, store);
+        var response = await _catalogClient.GetCatalogSong(id, store, [
+            SongRelationshipType.Albums,
+            SongRelationshipType.Artists,
+            SongRelationshipType.Genres,
+            SongRelationshipType.Composers,
+        ]);
 
         var song = response.Data?.FirstOrDefault();
 
