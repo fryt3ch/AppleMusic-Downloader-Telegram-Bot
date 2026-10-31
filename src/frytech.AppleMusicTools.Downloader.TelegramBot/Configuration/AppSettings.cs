@@ -315,6 +315,13 @@ public class AppSettings
                     .NotEmpty()
                     .WithMessage("DOWNLOADER__GAMDL__COOKIES_PATH is required when PROVIDER=gamdl.");
             });
+
+            When(x => string.Equals(x.Provider, YtDlpSongFileProvider.Name, StringComparison.OrdinalIgnoreCase), () =>
+            {
+                RuleFor(x => x.YtDlp.CookiesPath)
+                    .NotEmpty()
+                    .WithMessage("DOWNLOADER__YTDLP__COOKIES_PATH is required when PROVIDER=ytdlp.");
+            });
         }
     }
 }
@@ -351,6 +358,14 @@ public class AppSettingsValidator : AbstractValidator<AppSettings>
                 context.AddFailure(
                     "DOWNLOADER__GAMDL__COOKIES_PATH",
                     "DOWNLOADER__GAMDL__COOKIES_PATH is required when seeding with gamdl.");
+            }
+
+            if (string.Equals(seedProvider, YtDlpSongFileProvider.Name, StringComparison.OrdinalIgnoreCase) &&
+                string.IsNullOrWhiteSpace(settings.Downloader.YtDlp.CookiesPath))
+            {
+                context.AddFailure(
+                    "DOWNLOADER__YTDLP__COOKIES_PATH",
+                    "DOWNLOADER__YTDLP__COOKIES_PATH is required when seeding with ytdlp.");
             }
         });
     }

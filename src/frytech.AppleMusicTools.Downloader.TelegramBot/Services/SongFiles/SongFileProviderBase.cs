@@ -32,7 +32,7 @@ public abstract class SongFileProviderBase : ISongFileProvider
         {
             song = await Catalog.GetSongAsync(songId, store);
 
-            return await GetSongFileAsync(song, cancellationToken);
+            return await GetSongFileAsync(song, store, cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -48,5 +48,5 @@ public abstract class SongFileProviderBase : ISongFileProvider
         }
     }
 
-    protected abstract Task<SongFile> GetSongFileAsync(Song song, CancellationToken cancellationToken);
+    protected abstract Task<SongFile> GetSongFileAsync(Song song, string store, CancellationToken cancellationToken);
 }

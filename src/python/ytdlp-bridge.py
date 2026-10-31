@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import io
 import os
@@ -8,7 +9,13 @@ import tempfile
 from difflib import SequenceMatcher
 from pathlib import Path
 
+import httpx
 import yt_dlp
+from gamdl.api import AppleMusicApi
+from gamdl.downloader import AppleMusicBaseDownloader
+from gamdl.interface import AppleMusicBaseInterface, AppleMusicInterface, AppleMusicSongInterface
+from gamdl.interface.enums import CoverFormat
+from mutagen.mp4 import MP4
 from yt_dlp.cookies import YoutubeDLCookieJar
 
 try:
@@ -17,6 +24,7 @@ except ImportError:
     fcntl = None
 
 SEARCH_RESULT_LIMIT = 5
+APPLE_MUSIC_LANGUAGE = "en-US"
 
 _NOISE_PATTERN = re.compile(
     r"\((?:[^)]*)\)|\[(?:[^\]]*)\]",
@@ -27,6 +35,10 @@ _NOISE_WORDS = {
     "remaster", "remastered", "mv", "m", "explicit", "visualizer",
     "music", "clip", "full", "song",
 }
+
+
+class NoSearchResults(Exception):
+    pass
 
 
 def normalize(text):
@@ -290,24 +302,110 @@ class CookieSession:
         return False
 
 
-def run_download(cookie_source, artist, title, expected_duration, custom_output_path):
+def read_media_user_token(cookie_path):
+    if not cookie_path or not os.path.isfile(cookie_path):
+        return None
+
+    with open(cookie_path, encoding="utf-8", errors="ignore") as cookies_file:
+        for raw_line in cookies_file:
+            line = raw_line.rstrip("\r\n")
+
+            if line.startswith("#HttpOnly_"):
+                line = line[len("#HttpOnly_"):]
+            elif line.startswith("#") or not line:
+                continue
+
+            parts = line.split("\t")
+
+            if (
+                len(parts) >= 7
+                and parts[5] == "media-user-token"
+                and "music.apple.com" in parts[0]
+            ):
+                return parts[6]
+
+    return None
+
+
+async def fetch_apple_music_media(cookie_path, song_id, store):
+    token = os.environ.get("APPLE_MUSIC__API_TOKEN", "").strip()
+    if not token:
+        raise RuntimeError("APPLE_MUSIC__API_TOKEN is not set")
+
+    media_user_token = read_media_user_token(cookie_path)
+    if not media_user_token:
+        raise RuntimeError(
+            "media-user-token cookie was not found in the yt-dlp cookies file"
+        )
+
+    store = store.strip().lower() or os.environ.get("APPLE_MUSIC__DEFAULT_STORE", "us").strip().lower()
+
+    headers = {
+        "authorization": f"Bearer {token}",
+        "origin": "https://music.apple.com",
+        "cookie": f"media-user-token={media_user_token}",
+    }
+
+    client = httpx.AsyncClient(headers=headers, timeout=60.0)
+
+    try:
+        apple_music_api = AppleMusicApi(
+            client=client,
+            token=token,
+            storefront=store,
+            language=APPLE_MUSIC_LANGUAGE,
+            media_user_token=media_user_token,
+        )
+        base_interface = AppleMusicBaseInterface(
+            apple_music_api=apple_music_api,
+            itunes_api=None,
+            wrapper_api=None,
+            cover_format=CoverFormat.JPG,
+            cover_size=1200,
+            cdm=None,
+        )
+        song_interface = AppleMusicSongInterface(
+            base=base_interface,
+            skip_stream_info=True,
+        )
+        interface = AppleMusicInterface(
+            song=song_interface,
+            music_video=None,
+            uploaded_video=None,
+        )
+        base_downloader = AppleMusicBaseDownloader(interface=interface)
+
+        song_url = f"https://music.apple.com/{store}/song/{song_id}"
+        media = None
+
+        async for item in interface.get_media_from_url(song_url):
+            if item.error:
+                raise item.error
+
+            if not item.partial:
+                media = item
+
+        if media is None or media.tags is None:
+            raise RuntimeError("failed to fetch Apple Music metadata")
+
+        return media, base_downloader
+    finally:
+        await client.aclose()
+
+
+def download_from_youtube(cookie_source, artist, title, expected_duration, custom_output_path):
     output_dir = str(custom_output_path.parent)
     output_stem = custom_output_path.stem
     query = f"{artist} - {title}".strip()
 
-    try:
-        with yt_dlp.YoutubeDL(build_opts(cookie_source)) as ydl:
-            search_result = ydl.extract_info(f"ytsearch{SEARCH_RESULT_LIMIT}:{query}", download=False)
-    except Exception as e:
-        print_error(e)
-        return
+    with yt_dlp.YoutubeDL(build_opts(cookie_source)) as ydl:
+        search_result = ydl.extract_info(f"ytsearch{SEARCH_RESULT_LIMIT}:{query}", download=False)
 
     candidates = [entry for entry in (search_result or {}).get("entries") or [] if entry]
     best = pick_best(candidates, artist, title, expected_duration)
 
     if best is None:
-        print("NOT_FOUND: no search results")
-        return
+        raise NoSearchResults()
 
     video_url = best.get("webpage_url") or f"https://www.youtube.com/watch?v={best.get('id')}"
 
@@ -317,16 +415,11 @@ def run_download(cookie_source, artist, title, expected_duration, custom_output_
         "outtmpl": str(custom_output_path.with_suffix("")),
         "postprocessors": [
             {"key": "FFmpegExtractAudio", "preferredcodec": "m4a"},
-            {"key": "FFmpegMetadata"},
         ],
     })
 
-    try:
-        with yt_dlp.YoutubeDL(download_opts) as ydl:
-            ydl.extract_info(video_url, download=True)
-    except Exception as e:
-        print_error(e)
-        return
+    with yt_dlp.YoutubeDL(download_opts) as ydl:
+        ydl.extract_info(video_url, download=True)
 
     if not custom_output_path.exists():
         candidates_on_disk = list(Path(output_dir).glob(f"{output_stem}.*"))
@@ -337,8 +430,44 @@ def run_download(cookie_source, artist, title, expected_duration, custom_output_
             os.replace(candidates_on_disk[0], custom_output_path)
 
     if not custom_output_path.exists():
-        print(f"ERROR: Output file was not produced at {custom_output_path}")
-        return
+        raise RuntimeError(f"Output file was not produced at {custom_output_path}")
+
+
+def clear_mp4_tags(path):
+    mp4 = MP4(path)
+
+    if mp4.tags is not None:
+        mp4.tags.delete(str(path))
+
+
+async def run_download(cookie_source, apple_cookie_path, song_id, store, custom_output_path):
+    media, base_downloader = await fetch_apple_music_media(
+        apple_cookie_path,
+        song_id,
+        store,
+    )
+
+    attributes = media.media_metadata.get("attributes", {})
+    artist = attributes.get("artistName") or ""
+    title = attributes.get("name") or ""
+    duration_ms = attributes.get("durationInMillis")
+    expected_duration = float(duration_ms) / 1000 if duration_ms else 0.0
+
+    await asyncio.to_thread(
+        download_from_youtube,
+        cookie_source,
+        artist,
+        title,
+        expected_duration,
+        custom_output_path,
+    )
+
+    cover_bytes = None
+    if media.cover and media.cover.url:
+        cover_bytes = await base_downloader.interface.base.get_cover_bytes(media.cover.url)
+
+    clear_mp4_tags(custom_output_path)
+    await base_downloader.apply_tags(str(custom_output_path), media.tags, cover_bytes)
 
     print("SUCCESS")
 
@@ -348,19 +477,30 @@ def main():
         print("ERROR: Missing arguments")
         return
 
-    artist = sys.argv[1]
-    title = sys.argv[2]
+    song_id = sys.argv[1].strip()
+    store = sys.argv[2].strip()
+    custom_output_path = Path(sys.argv[3]).resolve()
+    cookies_path = sys.argv[4].strip() if len(sys.argv) > 4 else ""
+
+    if not song_id:
+        print("ERROR: Missing song id")
+        return
 
     try:
-        expected_duration = float(sys.argv[3])
-    except ValueError:
-        expected_duration = 0.0
-
-    custom_output_path = Path(sys.argv[4]).resolve()
-    cookies_path = sys.argv[5].strip() if len(sys.argv) > 5 else ""
-
-    with CookieSession(cookies_path) as cookie_source:
-        run_download(cookie_source, artist, title, expected_duration, custom_output_path)
+        with CookieSession(cookies_path) as cookie_source:
+            asyncio.run(
+                run_download(
+                    cookie_source,
+                    cookie_source or cookies_path,
+                    song_id,
+                    store,
+                    custom_output_path,
+                )
+            )
+    except NoSearchResults:
+        print("NOT_FOUND: no search results")
+    except Exception as error:
+        print_error(error)
 
 
 if __name__ == "__main__":
