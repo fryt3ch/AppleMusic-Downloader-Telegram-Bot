@@ -13,15 +13,15 @@
       <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.2.0" />
       <PackageReference Include="frytech.Essentials.FluentValidation.Tools" Version="1.0.0" />
       <PackageReference Include="KeyedSemaphores" Version="6.1.0" />
-      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13">
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14">
         <PrivateAssets>all</PrivateAssets>
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       </PackageReference>
-      <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.13" />
-      <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.13" />
-      <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.13" />
-      <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="10.0.13" />
-      <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.13" />
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.14" />
+      <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.14" />
+      <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.14" />
+      <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="10.0.14" />
+      <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.14" />
       <PackageReference Include="Telegram.Bot" Version="22.10.3.3" />
     </ItemGroup>
 
