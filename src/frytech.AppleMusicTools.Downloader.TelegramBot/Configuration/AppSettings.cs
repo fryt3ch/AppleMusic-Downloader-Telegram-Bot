@@ -208,10 +208,10 @@ public class AppSettings
         public string? Provider { get; init; }
 
         [ConfigurationKeyName("ARTISTS_FILE")]
-        public string ArtistsFile { get; init; } = "Seed/top-artists-5000.txt";
+        public string ArtistsFile { get; init; } = "data/top-artists-5000.txt";
 
         [ConfigurationKeyName("OVERRIDES_FILE")]
-        public string OverridesFile { get; init; } = "Seed/artist-overrides.tsv";
+        public string OverridesFile { get; init; } = "data/artist-overrides.tsv";
 
         [ConfigurationKeyName("START_INDEX")]
         public int StartIndex { get; init; }
