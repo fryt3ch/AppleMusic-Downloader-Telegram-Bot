@@ -79,7 +79,7 @@ DOWNLOADER__PROVIDER=ytdlp
 DOWNLOADER__YTDLP__COOKIES_PATH=/app/data/youtube_cookies.txt
 ```
 
-For Apple Music audio, set `DOWNLOADER__PROVIDER=gamdl` and point `DOWNLOADER__GAMDL__COOKIES_PATH` at your Apple cookies. The JWT token is required in both modes; an Apple Music subscription is required only for `gamdl`.
+For Apple Music audio, set `DOWNLOADER__PROVIDER=gamdl` and point `DOWNLOADER__GAMDL__COOKIES_PATH` at your Apple cookies. The JWT token is required in both modes. The `ytdlp` provider downloads audio from YouTube but fetches Apple Music metadata, lyrics, and cover art for tagging, so its cookies file must also contain the Apple `media-user-token` cookie. Providers do not share cookie files.
 
 ## Requirements
 
@@ -88,8 +88,8 @@ For Apple Music audio, set `DOWNLOADER__PROVIDER=gamdl` and point `DOWNLOADER__G
 | Telegram bot token | everything | Create one via [@BotFather](https://t.me/BotFather). |
 | Telegram storage chat | everything | Private group or channel where the bot can upload cached audio. Add the bot as an admin and use the numeric chat ID (`-100...`). |
 | Apple Music JWT token | everything | Used for search, metadata, and cache IDs. |
-| Apple Music subscription + Apple cookies | `gamdl` | Required to decrypt Apple Music `.m4a` files. |
-| YouTube cookies | `ytdlp` | Optional but strongly recommended. Use a dedicated account. |
+| Apple Music subscription + Apple cookies | `gamdl`, `ytdlp` metadata | Required to decrypt Apple Music `.m4a` files for `gamdl`, and to fetch metadata/lyrics/cover art for `ytdlp`. |
+| YouTube cookies | `ytdlp` | Optional but strongly recommended. Use a dedicated account. Must also contain the Apple `media-user-token` cookie. |
 | Docker + Docker Compose | everything | `ffmpeg`, Python, and Deno are included in the image. |
 
 ## Setup
@@ -126,6 +126,8 @@ data/bot/youtube_cookies.txt
 
 Both map to `/app/data/...` inside the container. If you prefer a single file, the compose defaults use `/app/data/cookies.txt`, but separate files avoid accidental overwrites when switching providers.
 
+For `ytdlp`, the bridge reads `media-user-token` from `DOWNLOADER__YTDLP__COOKIES_PATH`. It never uses the `gamdl` cookies file. Either merge the Apple `media-user-token` cookie into `youtube_cookies.txt`, or point `DOWNLOADER__YTDLP__COOKIES_PATH` at a combined file containing both YouTube and Apple cookies.
+
 Keep `.env` and cookie files out of version control. Both are excluded by the repository's `.gitignore`.
 
 #### Apple Music cookies (`gamdl`)
@@ -135,6 +137,8 @@ Export Netscape cookies from a signed-in [music.apple.com](https://music.apple.c
 #### YouTube cookies (`ytdlp`)
 
 YouTube cookies are optional but improve reliability. Use a dedicated Google account that you do not use in a browser afterwards, and export Netscape cookies from the same egress IP as the bot to `data/bot/youtube_cookies.txt`.
+
+The same file must also contain the Apple Music `media-user-token` cookie (domain `.music.apple.com`). This cookie is used only for Apple Music metadata, lyrics, and cover art. It does not make `ytdlp` depend on the `gamdl` cookies file.
 
 The bridge gives each yt-dlp process a temporary copy of the jar and merges updated cookies back under a lock, so rotation is preserved during parallel downloads. If the session expires, replace the file with a fresh export.
 
@@ -193,7 +197,7 @@ The bot container loads `.env` through `env_file`, so every variable listed belo
 | `APPLE_MUSIC__STORE_API_URL` | No | `https://amp-api-edge.music.apple.com/v1/` | Apple Music Catalog API base URL. |
 | `DOWNLOADER__PROVIDER` | No | `gamdl` | `gamdl` for Apple Music or `ytdlp` for YouTube. |
 | `DOWNLOADER__GAMDL__COOKIES_PATH` | `gamdl` | `/app/data/cookies.txt` | Apple Music cookies file. |
-| `DOWNLOADER__YTDLP__COOKIES_PATH` | No | `/app/data/cookies.txt` | Optional YouTube cookies file. |
+| `DOWNLOADER__YTDLP__COOKIES_PATH` | `ytdlp` metadata | `/app/data/cookies.txt` | YouTube cookies file; must also contain the Apple `media-user-token` cookie for metadata/tagging. |
 | `DOWNLOADER__PROCESS_TIMEOUT_SECONDS` | No | `300` | Timeout for a provider subprocess. |
 
 ### Downloads and queue
@@ -414,6 +418,7 @@ Seeding all 5000 artists can produce hundreds of thousands of tracks and take da
 |---|---|
 | Apple Music search fails with `401` | Refresh `APPLE_MUSIC__API_TOKEN`. |
 | `gamdl` download fails | Check the Apple Music subscription and `apple_cookies.txt`. |
+| `yt-dlp`: `media-user-token cookie was not found` | Add the Apple Music `media-user-token` cookie to `DOWNLOADER__YTDLP__COOKIES_PATH`; `ytdlp` does not read the `gamdl` cookies file. |
 | `yt-dlp`: `Sign in to confirm you're not a bot` | Refresh YouTube cookies, use a dedicated account, and make sure the browser and bot use the same egress IP. A flagged datacenter IP may still need a proxy. |
 | YouTube cookies expire after a while | Replace `youtube_cookies.txt` with a fresh export. The bridge persists rotation, but sessions can still be invalidated. |
 | `telegram-bot-api:8081` name not known | Use the public API, or start the `local-api` profile and set `TELEGRAM__SERVER_API_URL`. |
