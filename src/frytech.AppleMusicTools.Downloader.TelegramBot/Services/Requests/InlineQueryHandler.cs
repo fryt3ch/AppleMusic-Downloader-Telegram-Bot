@@ -95,7 +95,7 @@ public sealed class InlineQueryHandler
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Skipping unsupported inline result {ResourceType} {ResourceId}", resource.ResourceType, resource.Id);
+                _logger.LogWarning(ex, "Skipping unsupported inline result {ResourceType} {ResourceId}", resource.Type, resource.Id);
             }
         }
 

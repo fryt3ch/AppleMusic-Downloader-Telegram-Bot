@@ -36,7 +36,7 @@ public sealed class GamdlSongFileProvider : SongFileProviderBase
     {
         _logger.LogDebug("Downloading song {SongId} '{Artist} - {Title}' via {Provider}", song.Id, song.Attributes.ArtistName, song.Attributes.Name, ProviderName);
 
-        var songUrl = AppleMusicUrl.Create(song.ResourceType, song.Id, string.IsNullOrWhiteSpace(store) ? _appSettings.AppleMusic.DefaultStore : store);
+        var songUrl = AppleMusicUrl.Create(song.Type, song.Id, string.IsNullOrWhiteSpace(store) ? _appSettings.AppleMusic.DefaultStore : store);
         var trackStream = await DownloadTrackAsStreamAsync(songUrl.AbsoluteUri, cancellationToken);
 
         var fileName = SongFileNameBuilder.BuildFileName(song);

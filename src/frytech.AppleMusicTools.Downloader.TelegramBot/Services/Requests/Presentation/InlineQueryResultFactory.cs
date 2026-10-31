@@ -27,7 +27,7 @@ public class InlineQueryResultFactory
 
         var attributes = hasAttributesResource.Attributes;
 
-        var url = AppleMusicUrl.Create(resource.ResourceType, resource.Id, _appSettings.AppleMusic.DefaultStore);
+        var url = AppleMusicUrl.Create(resource.Type, resource.Id, _appSettings.AppleMusic.DefaultStore);
         var urlStr = url.ToString();
         
         var inputMessageContent = new InputTextMessageContent($"{urlStr}");
@@ -40,28 +40,18 @@ public class InlineQueryResultFactory
         {
             var duration = trackAttributes.Duration == TimeSpan.Zero
                 ? TelegramMessages.InlineNotReleased
-                : string.Format(
-                    TelegramMessages.InlineDuration,
-                    trackAttributes.Duration.Minutes,
-                    trackAttributes.Duration.Seconds);
+                : string.Format(TelegramMessages.InlineDuration, trackAttributes.Duration.Minutes, trackAttributes.Duration.Seconds);
 
-            article.Description = resource.ResourceType is ResourceType.MusicVideos
+            article.Description = resource.Type is ResourceType.MusicVideos
                 ? string.Format(TelegramMessages.InlineMusicVideoDescription, trackAttributes.ArtistName)
                 : string.Format(TelegramMessages.InlineTrackDescription, trackAttributes.ArtistName, duration);
         }
         else
             article.Description = resource switch
             {
-                Album album => string.Format(
-                    TelegramMessages.InlineAlbumDescription,
-                    album.Attributes.ArtistName,
-                    album.Attributes.ReleaseDate,
-                    album.Attributes.TrackCount),
+                Album album => string.Format(TelegramMessages.InlineAlbumDescription, album.Attributes.ArtistName, album.Attributes.ReleaseDate, album.Attributes.TrackCount),
                 Artist artist => string.Join(", ", artist.Attributes.GenreNames ?? []),
-                Playlist playlist => string.Format(
-                    TelegramMessages.InlinePlaylistDescription,
-                    playlist.Attributes.CuratorName,
-                    playlist.Attributes.LastModifiedDate.ToString("yyyy.MM.dd")),
+                Playlist playlist => string.Format(TelegramMessages.InlinePlaylistDescription, playlist.Attributes.CuratorName, playlist.Attributes.LastModifiedDate.ToString("yyyy.MM.dd")),
 
                 _ => article.Description
             };

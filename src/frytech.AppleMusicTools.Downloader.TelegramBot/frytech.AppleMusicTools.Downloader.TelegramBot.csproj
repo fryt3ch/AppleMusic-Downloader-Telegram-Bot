@@ -11,7 +11,6 @@
     <ItemGroup>
       <PackageReference Include="FluentValidation" Version="12.2.0" />
       <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.2.0" />
-      <PackageReference Include="frytech.AppleMusic.API" Version="1.0.4" />
       <PackageReference Include="frytech.Essentials.FluentValidation.Tools" Version="1.0.0" />
       <PackageReference Include="KeyedSemaphores" Version="6.1.0" />
       <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13">
@@ -36,6 +35,10 @@
         <AutoGen>True</AutoGen>
         <DependentUpon>TelegramMessages.resx</DependentUpon>
       </Compile>
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\frytech.AppleMusic.API\frytech.AppleMusic.API.csproj" />
     </ItemGroup>
 
 </Project>
